@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, time, timedelta
 
 from telegram import (
     Update,
@@ -23,10 +23,12 @@ TOKEN = "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"
 CHAT_ID = -1002190311306
 DISCUSS_CHAT_URL = "https://t.me/kiev_shat"
 
-KYIV_TZ = timezone(timedelta(hours=2))  # зима (UTC+2)
+# ⏰ ЧАС В UTC
+# 23:30 Київ = 21:30 UTC
+NIGHT_START = time(21, 30)
+# 07:00 Київ = 05:00 UTC
+NIGHT_END = time(5, 0)
 
-NIGHT_START = time(23, 20, tzinfo=KYIV_TZ)
-NIGHT_END = time(7, 0, tzinfo=KYIV_TZ)
 MUTE_HOURS = 6
 
 # =========================
@@ -35,7 +37,7 @@ warned_users = set()
 night_msg_id = None
 morning_msg_id = None
 
-# ---------- ТЕКСТИ ----------
+# ---------- ТЕКСТ ----------
 
 NIGHT_TEXT = (
     "🌒 <b>На майданчику оголошується нічний режим</b>\n\n"
@@ -46,17 +48,17 @@ NIGHT_TEXT = (
 
 MORNING_TEXT = (
     "☀️ <b>Нічний режим завершено</b>\n\n"
-    "Група працює у звичайному режимі\n"
+    "Група працює у звичайному режимі"
 )
 
-# ---------- ДОП ----------
+# =========================
 
 def user_link(user):
     return f'<a href="tg://user?id={user.id}">{user.full_name}</a>'
 
 
 def is_night():
-    now = datetime.now(KYIV_TZ).time()
+    now = datetime.utcnow().time()
     return now >= NIGHT_START or now <= NIGHT_END
 
 
@@ -73,7 +75,7 @@ async def delete_later(msg, sec):
         pass
 
 # =========================
-# НІЧНИЙ ФІЛЬТР
+# НІЧНИЙ КОНТРОЛЬ
 # =========================
 
 async def night_guard(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -101,7 +103,7 @@ async def night_guard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         warned_users.add(user.id)
         return
 
-    until = datetime.now(KYIV_TZ) + timedelta(hours=MUTE_HOURS)
+    until = datetime.utcnow() + timedelta(hours=MUTE_HOURS)
 
     await context.bot.restrict_chat_member(
         CHAT_ID,
@@ -112,7 +114,7 @@ async def night_guard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     m = await context.bot.send_message(
         CHAT_ID,
-        f"🔇 {user_link(user)} обмежений на 6 годин",
+        f"🔇 {user_link(user)} заборона на публікацію 6 годин",
         parse_mode="HTML",
         disable_notification=True,
     )
@@ -196,12 +198,7 @@ async def analitik_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================
 
 def main():
-    app = (
-        ApplicationBuilder()
-        .token(TOKEN)
-        .timezone(KYIV_TZ)
-        .build()
-    )
+    app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("analitik", analitik_cmd))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, night_guard))
@@ -213,4 +210,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
