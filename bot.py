@@ -21,7 +21,7 @@ TOKEN = "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"
 CHAT_ID = -1002190311306  # ID групи
 TIMEZONE = ZoneInfo("Europe/Kyiv")
 
-NIGHT_START = time(0, 0)   # 00:00
+NIGHT_START = time(0, 0)   # 07:00
 NIGHT_END = time(7, 0)     # 07:00
 
 BUTTON_URL = "https://t.me/kiev_shat"
