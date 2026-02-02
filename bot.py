@@ -140,7 +140,7 @@ async def clean_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ================= ЗАПУСК =================
 
-async def main():
+def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(MessageHandler(filters.StatusUpdate.ALL, clean_service))
@@ -152,7 +152,8 @@ async def main():
     asyncio.create_task(night_announcement(app))
 
     print("✅ BOT STARTED")
-    await app.run_polling()
+    app.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    if __name__ == "__main__":
+    main()
