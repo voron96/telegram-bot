@@ -21,7 +21,7 @@ from telegram.ext import (
 # НАЛАШТУВАННЯ
 # =========================
 
-TOKEN = "ВСТАВ_СВІЙ_ТОКЕН"
+TOKEN = "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"
 CHAT_ID = -1002190311306
 DISCUSS_CHAT_URL = "https://t.me/kiev_shat"
 
