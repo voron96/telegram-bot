@@ -1,13 +1,8 @@
 import asyncio
 import re
-from datetime import datetime, time, timedelta
+from datetime import datetime, time
 
-from telegram import (
-    Update,
-    ChatPermissions,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
+from telegram import Update, ChatPermissions, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     ApplicationBuilder,
     MessageHandler,
@@ -16,7 +11,7 @@ from telegram.ext import (
     filters,
 )
 
-# ================= НАСТРОЙКИ =================
+# ================== НАЛАШТУВАННЯ ==================
 
 TOKEN = "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"
 CHAT_ID = -1002190311306
@@ -25,14 +20,14 @@ DISCUSS_CHAT_URL = "https://t.me/kiev_shat"
 NIGHT_START = time(23, 30)
 NIGHT_END = time(7, 0)
 
-# ============================================
+# =================================================
 
-warned_short = set()
-warned_night = set()
+short_warn = {}
+night_warn = set()
 night_msg_id = None
 morning_msg_id = None
 
-# ================ ТЕКСТИ ====================
+# ================== ТЕКСТИ ==================
 
 NIGHT_TEXT = (
     "🌒 <b>На майданчику оголошується нічний режим</b>\n\n"
@@ -48,7 +43,7 @@ MORNING_TEXT = (
     "Працездатного дня 💼"
 )
 
-# ============================================
+# =============================================
 
 def user_link(user):
     return f'<a href="tg://user?id={user.id}">{user.full_name}</a>'
@@ -61,13 +56,6 @@ async def is_admin(update, context):
     m = await context.bot.get_chat_member(CHAT_ID, update.effective_user.id)
     return m.status in ("administrator", "creator")
 
-async def delete_later(msg, sec):
-    await asyncio.sleep(sec)
-    try:
-        await msg.delete()
-    except:
-        pass
-
 def full_mute():
     return ChatPermissions(
         can_send_messages=False,
@@ -76,7 +64,12 @@ def full_mute():
         can_add_web_page_previews=False,
     )
 
-# ================= ОБМЕЖЕННЯ =================
+async def delete_later(msg, sec):
+    await asyncio.sleep(sec)
+    try:
+        await msg.delete()
+    except:
+        pass
 
 async def restrict(context, user, text):
     await context.bot.restrict_chat_member(CHAT_ID, user.id, full_mute())
@@ -88,7 +81,7 @@ async def restrict(context, user, text):
     )
     asyncio.create_task(delete_later(msg, 15))
 
-# ============== ОСНОВНИЙ ФІЛЬТР ==============
+# ================== ОСНОВНИЙ ФІЛЬТР ==================
 
 async def guard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != CHAT_ID:
@@ -99,6 +92,7 @@ async def guard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not msg or not user:
         return
 
+    # службові join/left
     if msg.new_chat_members or msg.left_chat_member:
         await msg.delete()
         return
@@ -107,98 +101,102 @@ async def guard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = msg.text or ""
-    emojis = len(re.findall(r"[\U00010000-\U0010ffff]", text))
 
-    # ЛІНКИ
+    # посилання
     if re.search(r"(t\.me|http)", text) and "google.com/maps" not in text:
         await msg.delete()
         await restrict(context, user, "обмежений в правах публікації.\nЗверніться до адміністрації")
         return
 
-    # 8+ емоджі
-    if emojis > 8:
-        await msg.delete()
-        await restrict(context, user, "ваша публікація не відповідає правилам.\nЗверніться до адміністрації")
-        return
-
-    # <50 символів
+    # короткі повідомлення
     if len(text) < 50:
         await msg.delete()
-        if user.id in warned_short:
+        short_warn[user.id] = short_warn.get(user.id, 0) + 1
+        if short_warn[user.id] >= 2:
             await restrict(context, user, "обмежений в правах публікації.\nЗверніться до адміністрації")
-        else:
-            warned_short.add(user.id)
+            short_warn.pop(user.id, None)
         return
 
-    # НІЧ
+    # ніч
     if is_night():
         await msg.delete()
-        if user.id in warned_night:
+        if user.id in night_warn:
             await restrict(context, user, "обмежений в правах публікації (нічний режим)")
         else:
-            warned_night.add(user.id)
+            night_warn.add(user.id)
 
-# ================= КОМАНДИ ===================
+# ================== КОМАНДИ ==================
 
 async def analitik(update, context):
     if not await is_admin(update, context):
+        await update.message.delete()
         return
-    bot_msg = await context.bot.send_message(
+
+    msg = await context.bot.send_message(
         CHAT_ID,
         "🛡 Проблем не виявлено, все безпечно ✅",
         disable_notification=True,
     )
     await asyncio.sleep(5)
-    await bot_msg.delete()
+    await msg.delete()
     await update.message.delete()
 
-# ================= БАНЕРИ ====================
+async def cmd_on(update, context):
+    if not await is_admin(update, context):
+        await update.message.delete()
+        return
 
-async def night_banner(context):
-    global night_msg_id, morning_msg_id, warned_night
-    warned_night.clear()
+    if not update.message.reply_to_message:
+        await update.message.delete()
+        return
 
-    if morning_msg_id:
-        await context.bot.delete_message(CHAT_ID, morning_msg_id)
-        morning_msg_id = None
-
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💬 Чат обговорення", url=DISCUSS_CHAT_URL)]
-    ])
+    user = update.message.reply_to_message.from_user
+    await context.bot.restrict_chat_member(CHAT_ID, user.id, full_mute())
 
     msg = await context.bot.send_message(
         CHAT_ID,
-        NIGHT_TEXT,
+        f"🚫 {user_link(user)} обмежено в правах адміністрацією",
         parse_mode="HTML",
-        reply_markup=keyboard,
         disable_notification=True,
     )
-    night_msg_id = msg.message_id
+    await delete_later(msg, 15)
+    await update.message.delete()
 
-async def morning_banner(context):
-    global night_msg_id, morning_msg_id
-    if night_msg_id:
-        await context.bot.delete_message(CHAT_ID, night_msg_id)
-        night_msg_id = None
+async def cmd_off(update, context):
+    if not await is_admin(update, context):
+        await update.message.delete()
+        return
+
+    if not update.message.reply_to_message:
+        await update.message.delete()
+        return
+
+    user = update.message.reply_to_message.from_user
+    await context.bot.restrict_chat_member(
+        CHAT_ID,
+        user.id,
+        ChatPermissions(can_send_messages=True, can_send_media_messages=True,
+                        can_send_other_messages=True, can_add_web_page_previews=True),
+    )
 
     msg = await context.bot.send_message(
         CHAT_ID,
-        MORNING_TEXT,
+        f"🔓 {user_link(user)} обмеження зняті адміністрацією",
         parse_mode="HTML",
         disable_notification=True,
     )
-    morning_msg_id = msg.message_id
+    await delete_later(msg, 15)
+    await update.message.delete()
 
-# ================= MAIN ======================
+# ================== MAIN ==================
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("analitik", analitik))
+    app.add_handler(CommandHandler("on", cmd_on))
+    app.add_handler(CommandHandler("off", cmd_off))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, guard))
-
-    app.job_queue.run_daily(night_banner, NIGHT_START)
-    app.job_queue.run_daily(morning_banner, NIGHT_END)
 
     app.run_polling()
 
