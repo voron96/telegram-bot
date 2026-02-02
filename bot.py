@@ -1,159 +1,123 @@
-import asyncio
 import re
-from datetime import datetime, time, timedelta
-from collections import defaultdict
+from datetime import time
 from zoneinfo import ZoneInfo
 
 from telegram import (
     Update,
-    ChatPermissions,
-    InlineKeyboardMarkup,
     InlineKeyboardButton,
+    InlineKeyboardMarkup,
 )
 from telegram.ext import (
     ApplicationBuilder,
-    ContextTypes,
     MessageHandler,
+    ContextTypes,
     filters,
 )
 
-# ================= НАСТРОЙКИ =================
+# ================== НАЛАШТУВАННЯ ==================
 
 TOKEN = "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"
-CHAT_ID = -1002190311306  # ID ГРУПИ
-KYIV_TZ = ZoneInfo("Europe/Kyiv")
+CHAT_ID = -1002190311306  # ← ОБОВʼЯЗКОВО ВПИШИ ID ЧАТУ
+TIMEZONE = ZoneInfo("Europe/Kyiv")
 
-NIGHT_START = time(0, 25)
-NIGHT_END = time(7, 0)
+NIGHT_START = time(1, 0)   # 01:00
+NIGHT_END = time(7, 0)     # 07:00
 
-NIGHT_TEXT = (
-    "🌙 <b>Увага!</b>\n\n"
-    "На майданчику оголошується <b>нічний режим</b> 🌒\n"
-    "До 07:00 всі повідомлення видаляються.\n\n"
-    "Тихої та спокійної ночі 💫"
-)
+SECOND_CHAT_LINK = "https://t.me/kiev_shat"
 
-NIGHT_BUTTON = InlineKeyboardMarkup([
-    [InlineKeyboardButton("➡️ Перейти в інший чат", url="https://t.me/your_second_chat")]
-])
+MIN_TEXT_LEN = 50
 
-URL_RE = re.compile(r"(https://t.me/kiev_shat)", re.IGNORECASE)
+# ================== СТАН ==================
 
-user_violations = defaultdict(list)
+user_last_short = {}  # user_id -> bool (чи вже було коротке)
 
-# ================= ДОПОМІЖНЕ =================
+# ================== ДОПОМІЖНІ ==================
 
-def is_admin(member):
-    return member.status in ("administrator", "creator")
+def is_night(now):
+    if NIGHT_START < NIGHT_END:
+        return NIGHT_START <= now < NIGHT_END
+    return now >= NIGHT_START or now < NIGHT_END
 
-def now_kyiv():
-    return datetime.now(KYIV_TZ)
 
-def is_night():
-    t = now_kyiv().time()
-    return NIGHT_START <= t or t < NIGHT_END
+def has_forbidden_links(text: str) -> bool:
+    if not text:
+        return False
 
-# ================= НІЧНЕ ОГОЛОШЕННЯ =================
+    if "maps.google" in text or "goo.gl/maps" in text:
+        return False
 
-async def night_announcement(app):
-    sent = False
-    while True:
-        now = now_kyiv()
-        if now.time().hour == NIGHT_START.hour and now.time().minute == NIGHT_START.minute and not sent:
-            await app.bot.send_message(
-                chat_id=CHAT_ID,
-                text=NIGHT_TEXT,
-                reply_markup=NIGHT_BUTTON,
-                disable_notification=True,
-            )
-            sent = True
-        if now.time().hour == 7 and now.time().minute == 1:
-            sent = False
-        await asyncio.sleep(30)
+    return bool(re.search(r"(http://|https://|t\.me/)", text))
 
-# ================= МОДЕРАЦІЯ =================
+
+# ================== ГОЛОВНА МОДЕРАЦІЯ ==================
 
 async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = update.effective_message
-    user = update.effective_user
-    chat = update.effective_chat
-
-    if not message or not user:
+    message = update.message
+    if not message or message.chat_id != CHAT_ID:
         return
 
-    member = await chat.get_member(user.id)
-    if is_admin(member):
-        return
+    user_id = message.from_user.id
+    now = message.date.astimezone(TIMEZONE).time()
 
-    # нічний режим
-    if is_night():
+    # ===== НІЧНИЙ РЕЖИМ =====
+    if is_night(now):
         await message.delete()
-        return
 
-    now = now_kyiv()
-    user_violations[user.id] = [
-        t for t in user_violations[user.id]
-        if now - t < timedelta(minutes=10)
-    ]
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("👉 Перейти в нічний чат", url=SECOND_CHAT_LINK)]
+        ])
 
-    # ===== посилання =====
-    if message.text and URL_RE.search(message.text):
-        await message.delete()
-        await chat.restrict_member(
-            user.id,
-            ChatPermissions(can_send_messages=False)
-        )
-        warn = await chat.send_message(
-            f"⛔ <b>{user.first_name}</b>, ваше оголошення не підлягає правилам.\n"
-            "Ви обмежені в правах публікації.",
+        await context.bot.send_message(
+            chat_id=CHAT_ID,
+            text="🌙 Нічний режим\nПублікації з 01:00 до 07:00 заборонені",
+            reply_markup=keyboard,
             disable_notification=True
         )
-        await asyncio.sleep(10)
-        await warn.delete()
         return
 
-    # ===== короткий текст =====
-    text_len = len(message.text or "")
-    if text_len > 0 and text_len < 50:
-        user_violations[user.id].append(now)
+    text = message.text or ""
+
+    # ===== ПОСИЛАННЯ =====
+    if has_forbidden_links(text):
         await message.delete()
-
-        if len(user_violations[user.id]) >= 2:
-            await chat.restrict_member(
-                user.id,
-                ChatPermissions(can_send_messages=False)
-            )
-            warn = await chat.send_message(
-                f"⚠️ <b>{user.first_name}</b>, ви обмежені в правах публікації.\n"
-                "Зверніться до адміністрації.",
-                disable_notification=True
-            )
-            await asyncio.sleep(10)
-            await warn.delete()
+        await context.bot.send_message(
+            chat_id=CHAT_ID,
+            text="❌ Ваше оголошення не підлягає правилам майданчику.\nПосилання заборонені.",
+            delete_after=10
+        )
         return
 
-# ================= JOIN / LEFT =================
+    # ===== КОРОТКИЙ ТЕКСТ =====
+    if message.text and len(text) < MIN_TEXT_LEN:
+        if user_last_short.get(user_id):
+            await message.delete()
+            await context.bot.send_message(
+                chat_id=CHAT_ID,
+                text="❌ Повторне коротке повідомлення. Ви обмежені в публікації.",
+                delete_after=10
+            )
+            return
+        else:
+            user_last_short[user_id] = True
+    else:
+        user_last_short[user_id] = False
 
-async def clean_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message:
-        await update.message.delete()
 
-# ================= ЗАПУСК =================
+# ================== ЗАПУСК ==================
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
-    app.add_handler(MessageHandler(filters.StatusUpdate.ALL, clean_service))
-    app.add_handler(MessageHandler(
-        filters.TEXT | filters.PHOTO | filters.VIDEO | filters.Document.ALL,
-        main_moderation
-    ))
+    app.add_handler(
+        MessageHandler(
+            filters.Chat(CHAT_ID)
+            & (filters.TEXT | filters.PHOTO | filters.VIDEO | filters.Document.ALL),
+            main_moderation
+        )
+    )
 
-    asyncio.create_task(night_announcement(app))
+    app.run_polling(close_loop=False)
 
-    print("✅ BOT STARTED")
-    app.run_polling()
 
 if __name__ == "__main__":
-    if __name__ == "__main__":
     main()
