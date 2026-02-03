@@ -150,7 +150,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await mute_user(context, user.id, MUTE_HOURS)
             m = await context.bot.send_message(
                 CHAT_ID,
-                f"🚫 {user_link(user)} публікація можлива лише на правах реклами, зверніться до адміністрації ",
+                f"🚫 {user_link(user)} публікація можлива лише на правах реклами, зверніться до адміністрації 📛",
                 parse_mode="HTML",
                 disable_notification=True,
             )
@@ -159,7 +159,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             warn_short_text.add(user.id)
             m = await context.bot.send_message(
                 CHAT_ID,
-                f"⚠️ {user_link(user)} Наступне подібне порушення призведе до обмеження прав ",
+                f"⚠️ {user_link(user)} наступне подібне порушення призведе до обмеження в публікації, дотримуйтесь правил ",
                 parse_mode="HTML",
                 disable_notification=True,
             )
