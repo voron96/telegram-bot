@@ -21,7 +21,7 @@ CHAT_ID = -1002190311306  # ID твоєї групи
 
 MIN_TEXT_LEN = 50
 MAX_EMOJI = 8
-MUTE_HOURS = 3
+MUTE_HOURS = 6
 KIEV_OFFSET = timedelta(hours=2)
 
 warn_short_text = set()
