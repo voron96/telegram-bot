@@ -171,7 +171,7 @@ async def send_daily_message(bot):
     )
 
     kb = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("🌐 Наш інший майданчик", url="https://t.me/kiev_shat")]]
+        [[InlineKeyboardButton("ЧС обговорення Київ", url="https://t.me/kiev_shat")]]
     )
 
     msg = await bot.send_message(
