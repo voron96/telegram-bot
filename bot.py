@@ -11,7 +11,7 @@ import os
 
 # ================= НАСТРОЙКИ =================
 
-TOKEN = os.getenv "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"  # Тепер з ENV
+TOKEN = "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"  # Тепер з ENV
 CHAT_ID = -1002190311306   # ID групи
 
 MIN_TEXT_LEN = 50
