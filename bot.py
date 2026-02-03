@@ -22,25 +22,25 @@ CHAT_ID = -1002190311306  # ID групи
 
 MIN_TEXT_LEN = 50
 MAX_EMOJI = 8
-KIEV_OFFSET = timedelta(hours=2)  # UTC+2 для Києва
-
-# =============================================
+KIEV_OFFSET = timedelta(hours=2)  # Український час (UTC+2)
 
 warn_short_text = set()
-daily_message_id = None  # для зберігання останнього службового повідомлення
+daily_message_id = None
+
+# =============================================
 
 LINK_RE = re.compile(r"(t\.me/|https?://)")
 GOOGLE_MAPS_RE = re.compile(r"maps\.google\.com|goo\.gl/maps")
 
 EMOJI_RE = re.compile(
-    "[\U0001F600-\U0001F64F"
-    "\U0001F300-\U0001F5FF"
-    "\U0001F680-\U0001F6FF"
+    "[\U0001F600-\U0001F64F"  # emoticons
+    "\U0001F300-\U0001F5FF"  # symbols & pictographs
+    "\U0001F680-\U0001F6FF"  # transport & map symbols
     "\U0001F700-\U0001F77F"
     "\U0001F780-\U0001F7FF"
     "\U0001F800-\U0001F8FF"
     "\U0001F900-\U0001F9FF"
-    "\U0001FA00-\U0001FAFF]"
+    "\U0001FA00-\U0001FAFF]", flags=re.UNICODE
 )
 
 # =============================================
@@ -63,15 +63,19 @@ async def delete_later(msg, sec):
 
 
 async def restrict_user(context, user_id):
-    await context.bot.restrict_chat_member(
-        CHAT_ID,
-        user_id,
-        ChatPermissions(can_send_messages=False),
-    )
+    """Обмеження користувача в правах публікацій"""
+    try:
+        await context.bot.restrict_chat_member(
+            CHAT_ID,
+            user_id,
+            ChatPermissions(can_send_messages=False),
+        )
+    except:
+        pass
 
 
 # =============================================
-# ОСНОВНА МОДЕРАЦІЯ
+# ГОЛОВНА МОДЕРАЦІЯ
 # =============================================
 
 async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -84,6 +88,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     msg = update.effective_message
     text = msg.text or ""
+
     if not user:
         return
     if await is_admin(update, context):
@@ -101,7 +106,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             CHAT_ID,
             f"⚠️ {user_link(user)} ваш акаунт не підлягає правилам публікації, зверніться до адміністрації",
             parse_mode="HTML",
-            disable_notification=True
+            disable_notification=True,
         )
         asyncio.create_task(delete_later(m, 10))
         return
@@ -112,22 +117,23 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await restrict_user(context, user.id)
         m = await context.bot.send_message(
             CHAT_ID,
-            f"🚫 {user_link(user)} обмежений у правах публікації з причини порушення правил майданчика",
+            f"🚫 {user_link(user)} обмежений у правах публікації з причин - порушень правил майданчика",
             parse_mode="HTML",
-            disable_notification=True
+            disable_notification=True,
         )
         asyncio.create_task(delete_later(m, 15))
         return
 
-    # ----- EMOJI LIMIT -----
-    if len(EMOJI_RE.findall(text)) >= MAX_EMOJI:
+    # ----- EMOJI LIMIT (нове) -----
+    emoji_count = len(EMOJI_RE.findall(text))
+    if emoji_count > MAX_EMOJI:
         await msg.delete()
         await restrict_user(context, user.id)
         m = await context.bot.send_message(
             CHAT_ID,
-            f"🚫 {user_link(user)} ваша публікація не підлягає правилам майданчика 😠",
+            f"🚫 {user_link(user)} ваша публікація не відповідає правилам майданчика 😠",
             parse_mode="HTML",
-            disable_notification=True
+            disable_notification=True,
         )
         asyncio.create_task(delete_later(m, 15))
         return
@@ -135,23 +141,24 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ----- SHORT TEXT -----
     if text and len(text) < MIN_TEXT_LEN:
         await msg.delete()
+
         if user.id in warn_short_text:
             # друге порушення
             await restrict_user(context, user.id)
             m = await context.bot.send_message(
                 CHAT_ID,
-                f"🚫 {user_link(user)} обмежений у правах публікації з причини порушення правил майданчика 📛",
+                f"🚫 {user_link(user)} обмежений у правах публікації з причини порушення правил майданчика ",
                 parse_mode="HTML",
-                disable_notification=True
+                disable_notification=True,
             )
             asyncio.create_task(delete_later(m, 15))
         else:
             warn_short_text.add(user.id)
             m = await context.bot.send_message(
                 CHAT_ID,
-                f"⚠️ {user_link(user)} ваше повідомлення надто коротке. Наступне подібне порушення призведе до обмеження прав 😐",
+                f"⚠️ {user_link(user)} Наступне подібне порушення призведе до обмеження прав на публікацію ",
                 parse_mode="HTML",
-                disable_notification=True
+                disable_notification=True,
             )
             asyncio.create_task(delete_later(m, 10))
         return
@@ -162,48 +169,46 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =============================================
 
 async def send_daily_message(context: ContextTypes.DEFAULT_TYPE):
+    """Публікація ранкового повідомлення та видалення старого"""
     global daily_message_id
-    # якщо є старе повідомлення — видалити
+
     if daily_message_id:
         try:
             await context.bot.delete_message(CHAT_ID, daily_message_id)
         except:
             pass
 
-    # текст повідомлення
+    # ТВОЄЙ ТЕКСТ — без змін
     text = (
-        "🌅 <b>Доброго ранку!</b>\n\n"
-        "Перед публікацією оголошення, переконайтеся, що ознайомилися з "
-        "📌 <b>правилами публікацій</b> (прикріплені зверху чату) і нічого не порушуєте.\n\n"
-        "Інакше адміністрація 👮‍♂️ та наш 🤖 бот можуть обмежити вас у правах публікації.\n\n"
-        "Бажаємо всім чудового, продуктивного дня! ☕💪"
+        "📮 <b>Доброго ранку!</b>\n\n"
+        "Перед публікацією оголошення, переконайтеся що ознайомилися з "
+        "🔧 <b>правилами публікації</b> (прикріплені зверху чату) і нічого не порушуєте.\n\n"
+        "Інакше адміністрація +написаний бот буде обмежувати в правах публікації.\n"
+        "Всім працездатного дня! ☕💪"
     )
 
-    # кнопка або банер
     keyboard = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("🌐 ЧС обговорення Київ", url="https://t.me/kiev_shat")]]
+        [[InlineKeyboardButton("🌐 Наш інший майданчик", url="https://t.me/kiev_shat")]]
     )
 
-    # відправлення без звуку
     msg = await context.bot.send_message(
         CHAT_ID,
         text,
         parse_mode="HTML",
         disable_notification=True,
-        reply_markup=keyboard
+        reply_markup=keyboard,
     )
 
-    # зберегти id для подальшого видалення
     daily_message_id = msg.message_id
 
 
 async def schedule_daily(context: ContextTypes.DEFAULT_TYPE):
-    """Планування повідомлення на 7:00 Київського часу"""
+    """Планування повідомлення на 7:00 за Києвом"""
     while True:
         now_utc = datetime.utcnow()
-        # поточний час у Києві
         now_kiev = now_utc + KIEV_OFFSET
         next_send = now_kiev.replace(hour=7, minute=0, second=0, microsecond=0)
+
         if now_kiev >= next_send:
             next_send += timedelta(days=1)
 
@@ -221,7 +226,7 @@ def main():
 
     app.add_handler(MessageHandler(filters.ALL, main_moderation))
 
-    # запуск планувальника щоденного повідомлення
+    # запуск щоденного повідомлення
     app.job_queue.run_once(lambda ctx: asyncio.create_task(schedule_daily(ctx)), 1)
 
     print("BOT STARTED ✅")
