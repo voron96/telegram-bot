@@ -7,11 +7,12 @@ from telegram.ext import (
 )
 import re
 import asyncio
+import os
 
 # ================= НАСТРОЙКИ =================
 
-TOKEN = "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"
-CHAT_ID = -1002190311306   # ID ГРУПИ
+TOKEN = os.getenv("8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s")  # Тепер з ENV
+CHAT_ID = -1002190311306   # ID групи
 
 MIN_TEXT_LEN = 50
 MAX_EMOJI = 8
@@ -60,9 +61,8 @@ async def restrict_user(context, user_id):
         ChatPermissions(can_send_messages=False),
     )
 
-
 # =============================================
-# ОСНОВНА МОДЕРАЦІЯ
+# ГОЛОВНА МОДЕРАЦІЯ
 # =============================================
 
 async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -75,6 +75,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user
     msg = update.effective_message
+    text = msg.text or ""
 
     if not user:
         return
@@ -86,8 +87,6 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if msg.new_chat_members or msg.left_chat_member:
         await msg.delete()
         return
-
-    text = msg.text or ""
 
     # ----- USERNAME REQUIRED -----
     if not user.username:
@@ -107,7 +106,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await restrict_user(context, user.id)
         m = await context.bot.send_message(
             CHAT_ID,
-            f"🚫 {user_link(user)} обмежений в правах публікації, зверніться до адміністрації",
+            f"🚫 {user_link(user)} обмежений у правах публікації з причини порушення правил майданчика",
             parse_mode="HTML",
             disable_notification=True
         )
@@ -120,7 +119,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await restrict_user(context, user.id)
         m = await context.bot.send_message(
             CHAT_ID,
-            f"🚫 {user_link(user)} ваша публікація не підлягає правилам майданчика",
+            f"🚫 {user_link(user)} ваша публікація не підлягає правилам майданчика 😠",
             parse_mode="HTML",
             disable_notification=True
         )
@@ -130,17 +129,27 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ----- SHORT TEXT -----
     if text and len(text) < MIN_TEXT_LEN:
         await msg.delete()
+
         if user.id in warn_short_text:
+            # Друге порушення — обмеження і повідомлення
             await restrict_user(context, user.id)
             m = await context.bot.send_message(
                 CHAT_ID,
-                f"🚫 {user_link(user)} обмежений в правах публікації, зверніться до адміністрації",
+                f"🚫 {user_link(user)} обмежений у правах публікації з причини порушення правил майданчика 📛",
                 parse_mode="HTML",
                 disable_notification=True
             )
             asyncio.create_task(delete_later(m, 15))
         else:
+            # Перше попередження
             warn_short_text.add(user.id)
+            m = await context.bot.send_message(
+                CHAT_ID,
+                f"⚠️ {user_link(user)} ваше повідомлення надто коротке. Наступне подібне порушення призведе до обмеження прав 😐",
+                parse_mode="HTML",
+                disable_notification=True
+            )
+            asyncio.create_task(delete_later(m, 10))
         return
 
 
@@ -150,12 +159,9 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(MessageHandler(filters.ALL, main_moderation))
 
-    app.add_handler(
-        MessageHandler(filters.ALL, main_moderation)
-    )
-
-    print("BOT STARTED")
+    print("BOT STARTED ✅")
     app.run_polling()
 
 
