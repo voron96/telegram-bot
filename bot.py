@@ -29,18 +29,13 @@ warn_short_text = set()
 daily_message_id = None
 
 
-# =============================================
-# УНІВЕРСАЛЬНЕ ВИЯВЛЕННЯ ЕМОДЗІ
-# =============================================
+# ----------------- ЛІЧИЛЬНИК ЕМОДЗІ -----------------
 def count_emoji(text: str) -> int:
-    """Рахує кількість емодзі через Unicode properties"""
     pattern = re.compile(r"\p{Emoji=Yes}", flags=re.UNICODE)
     return len(pattern.findall(text or ""))
 
 
-# =============================================
-# СЛУЖБОВІ ФУНКЦІЇ
-# =============================================
+# ----------------- ДОПОМІЖНІ ФУНКЦІЇ -----------------
 def user_link(user):
     return f'<a href="tg://user?id={user.id}">{user.full_name}</a>'
 
@@ -71,9 +66,7 @@ async def mute_user(context, user_id, hours):
         pass
 
 
-# =============================================
-# ОСНОВНА МОДЕРАЦІЯ
-# =============================================
+# ----------------- МОДЕРАЦІЯ -----------------
 LINK_RE = re.compile(r"(t\.me/|https?://)")
 GOOGLE_MAPS_RE = re.compile(r"maps\.google\.com|goo\.gl/maps")
 
@@ -90,12 +83,12 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user or await is_admin(update, context):
         return
 
-    # ----- SYSTEM JOIN / LEFT -----
+    # JOIN/LEFT system
     if msg.new_chat_members or msg.left_chat_member:
         await msg.delete()
         return
 
-    # ----- USERNAME REQUIRED -----
+    # USERNAME
     if not user.username:
         await msg.delete()
         m = await context.bot.send_message(
@@ -107,7 +100,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         asyncio.create_task(delete_later(m, 10))
         return
 
-    # ----- LINKS -----
+    # LINKS
     if LINK_RE.search(text) and not GOOGLE_MAPS_RE.search(text):
         await msg.delete()
         await mute_user(context, user.id, MUTE_HOURS)
@@ -120,7 +113,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         asyncio.create_task(delete_later(m, 15))
         return
 
-    # ----- EMOJI LIMIT -----
+    # EMOJI LIMIT
     emoji_count = count_emoji(text)
     if emoji_count > MAX_EMOJI:
         await msg.delete()
@@ -134,7 +127,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         asyncio.create_task(delete_later(m, 15))
         return
 
-    # ----- SHORT TEXT -----
+    # SHORT TEXT
     if text and len(text) < MIN_TEXT_LEN:
         await msg.delete()
         if user.id in warn_short_text:
@@ -158,12 +151,9 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 
-# =============================================
-# ЩОДЕННЕ ПОВІДОМЛЕННЯ БЕЗ job‑queue
-# =============================================
+# ----------------- ЩОДЕННЕ ПОВІДОМЛЕННЯ -----------------
 async def send_daily_message(bot):
     global daily_message_id
-
     if daily_message_id:
         try:
             await bot.delete_message(CHAT_ID, daily_message_id)
@@ -192,34 +182,30 @@ async def send_daily_message(bot):
     daily_message_id = msg.message_id
 
 
-async def daily_loop(bot):
-    """Безкінечний цикл: чекає до 7:00 — публікує"""
+async def scheduler(bot):
+    """Щоденний запуск о 07:00"""
     while True:
         now_kiev = datetime.utcnow() + KIEV_OFFSET
         next_send = now_kiev.replace(hour=7, minute=0, second=0, microsecond=0)
         if now_kiev >= next_send:
             next_send += timedelta(days=1)
-        delta = (next_send - now_kiev).total_seconds()
-        await asyncio.sleep(delta)
+        wait_sec = (next_send - now_kiev).total_seconds()
+
+        await asyncio.sleep(wait_sec)
         await send_daily_message(bot)
 
 
-# =============================================
-# ЗАПУСК
-# =============================================
+# ----------------- ГОЛОВНИЙ ЗАПУСК -----------------
 async def main():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(MessageHandler(filters.ALL, main_moderation))
 
-    # запуск бота і планувальника одночасно
-    await asyncio.gather(
-        app.initialize(),
-        app.start(),
-        daily_loop(app.bot),
-        app.updater.start_polling(),
-    )
+    # запускаємо scheduler у фоновій задачі
+    asyncio.create_task(scheduler(app.bot))
+
+    print("BOT STARTED ✅")
+    await app.run_polling()
 
 
 if __name__ == "__main__":
-    print("BOT STARTED ✅")
     asyncio.run(main())
