@@ -23,7 +23,7 @@ MAX_EMOJI = 8
 warn_short_text = set()
 last_morning_message_id = None
 
-LINK_RE = re.compile(r"(https://t.me/kiev_shat)")
+LINK_RE = re.compile(r"(t\.me/|https?://)")
 GOOGLE_MAPS_RE = re.compile(r"maps\.google\.com|goo\.gl/maps")
 
 EMOJI_RE = re.compile(
