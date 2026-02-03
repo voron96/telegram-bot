@@ -1,4 +1,9 @@
-from telegram import Update, ChatPermissions
+from telegram import (
+    Update,
+    ChatPermissions,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
@@ -13,10 +18,12 @@ from zoneinfo import ZoneInfo
 # ================= НАСТРОЙКИ =================
 
 TOKEN = "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"
-CHAT_ID = -1002190311306
+CHAT_ID = -1002190311306   # ID ГРУПИ
 
 MIN_TEXT_LEN = 50
 MAX_EMOJI = 8
+
+KYIV_TZ = ZoneInfo("Europe/Kyiv")
 
 # =============================================
 
@@ -64,7 +71,7 @@ async def restrict_user(context, user_id):
     )
 
 # =============================================
-# ОСНОВНА МОДЕРАЦІЯ
+# ОСНОВНА МОДЕРАЦІЯ (НЕ ЧІПАЄМО)
 # =============================================
 
 async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -84,81 +91,47 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await is_admin(update, context):
         return
 
-    # JOIN / LEFT
     if msg.new_chat_members or msg.left_chat_member:
         await msg.delete()
         return
 
     text = msg.text or ""
 
-    # USERNAME REQUIRED
     if not user.username:
         await msg.delete()
         m = await context.bot.send_message(
             CHAT_ID,
-            f"⚠️ {user_link(user)} ваш акаунт не відповідає правилам публікації",
+            f"⚠️ {user_link(user)} ваш акаунт не підлягає правилам публікації",
             parse_mode="HTML",
             disable_notification=True
         )
         asyncio.create_task(delete_later(m, 10))
         return
 
-    # LINKS
     if LINK_RE.search(text) and not GOOGLE_MAPS_RE.search(text):
         await msg.delete()
         await restrict_user(context, user.id)
-        m = await context.bot.send_message(
-            CHAT_ID,
-            f"🚫 {user_link(user)} обмежений в правах публікації",
-            parse_mode="HTML",
-            disable_notification=True
-        )
-        asyncio.create_task(delete_later(m, 15))
         return
 
-    # EMOJI LIMIT
     if len(EMOJI_RE.findall(text)) >= MAX_EMOJI:
         await msg.delete()
         await restrict_user(context, user.id)
-        m = await context.bot.send_message(
-            CHAT_ID,
-            f"🚫 {user_link(user)} ваша публікація порушує правила",
-            parse_mode="HTML",
-            disable_notification=True
-        )
-        asyncio.create_task(delete_later(m, 15))
         return
 
-    # SHORT TEXT
     if text and len(text) < MIN_TEXT_LEN:
         await msg.delete()
         if user.id in warn_short_text:
             await restrict_user(context, user.id)
-            m = await context.bot.send_message(
-                CHAT_ID,
-                f"🚫 {user_link(user)} обмежений в правах публікації",
-                parse_mode="HTML",
-                disable_notification=True
-            )
-            asyncio.create_task(delete_later(m, 15))
         else:
             warn_short_text.add(user.id)
         return
 
 # =============================================
-# РАНКОВЕ ПОВІДОМЛЕННЯ
+# РАНКОВЕ ПОВІДОМЛЕННЯ 07:00
 # =============================================
 
 async def morning_post(context: ContextTypes.DEFAULT_TYPE):
     global last_morning_message_id
-
-    text = (
-        "☀️ Доброго ранку!\n\n"
-        "Перед публікацією оголошень ознайомтесь з правилами "
-        "(закріплені вгорі чату).\n\n"
-        "❗ Порушення можуть призвести до обмеження публікацій.\n\n"
-        "Гарного та продуктивного дня 🙂"
-    )
 
     if last_morning_message_id:
         try:
@@ -166,46 +139,60 @@ async def morning_post(context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
 
+    text = (
+        "☀️ Доброго ранку!\n\n"
+        "Перед публікацією оголошення обовʼязково "
+        "перевірте правила чату.\n\n"
+        "⚠️ Порушення = обмеження прав публікації.\n"
+        "Гарного та продуктивного дня! 🙂"
+    )
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("👉 Перейти в чат", url="https://t.me/kiev_shat")]
+    ])
+
     msg = await context.bot.send_message(
-        chat_id=CHAT_ID,
-        text=text,
-        disable_notification=True,
-        reply_markup={
-            "inline_keyboard": [[
-                {"text": "👉 Перейти в чат", "url": "https://t.me/kiev_shat"}
-            ]]
-        }
+        CHAT_ID,
+        text,
+        reply_markup=keyboard,
+        disable_notification=True
     )
 
     last_morning_message_id = msg.message_id
+
+    schedule_next_morning(context.application)
+
+# =============================================
+# ПЛАНУВАННЯ
+# =============================================
+
+def schedule_next_morning(app):
+    now = datetime.now(KYIV_TZ)
+    run_time = now.replace(hour=7, minute=0, second=0, microsecond=0)
+
+    if run_time <= now:
+        run_time += timedelta(days=1)
+
+    delay = (run_time - now).total_seconds()
+
+    app.job_queue.run_once(morning_post, delay)
 
 # =============================================
 # ЗАПУСК
 # =============================================
 
 def main():
-    app = (
-        ApplicationBuilder()
-        .token(TOKEN)
-        .timezone(ZoneInfo("Europe/Kyiv"))
-        .build()
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(
+        MessageHandler(filters.ALL, main_moderation)
     )
 
-    app.add_handler(MessageHandler(filters.ALL, main_moderation))
-
-    now = datetime.now(ZoneInfo("Europe/Kyiv"))
-    first_run = now.replace(hour=7, minute=0, second=0, microsecond=0)
-    if first_run <= now:
-        first_run += timedelta(days=1)
-
-    app.job_queue.run_repeating(
-        morning_post,
-        interval=2 * 60 * 60,
-        first=first_run
-    )
+    schedule_next_morning(app)
 
     print("BOT STARTED")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
