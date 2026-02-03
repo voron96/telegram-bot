@@ -1,4 +1,9 @@
-from telegram import Update, ChatPermissions
+from telegram import (
+    Update,
+    ChatPermissions,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup
+)
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
@@ -8,18 +13,21 @@ from telegram.ext import (
 import re
 import asyncio
 import os
+from datetime import datetime, timedelta
 
-# ================= НАСТРОЙКИ =================
+# ================= НАЛАШТУВАННЯ =================
 
-TOKEN = "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"  # Тепер з ENV
-CHAT_ID = -1002190311306   # ID групи
+TOKEN = "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"
+CHAT_ID = -1002190311306  # ID групи
 
 MIN_TEXT_LEN = 50
 MAX_EMOJI = 8
+KIEV_OFFSET = timedelta(hours=2)  # UTC+2 для Києва
 
 # =============================================
 
 warn_short_text = set()
+daily_message_id = None  # для зберігання останнього службового повідомлення
 
 LINK_RE = re.compile(r"(t\.me/|https?://)")
 GOOGLE_MAPS_RE = re.compile(r"maps\.google\.com|goo\.gl/maps")
@@ -61,25 +69,23 @@ async def restrict_user(context, user_id):
         ChatPermissions(can_send_messages=False),
     )
 
+
 # =============================================
-# ГОЛОВНА МОДЕРАЦІЯ
+# ОСНОВНА МОДЕРАЦІЯ
 # =============================================
 
 async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not update.effective_message:
         return
-
     if update.effective_chat.id != CHAT_ID:
         return
 
     user = update.effective_user
     msg = update.effective_message
     text = msg.text or ""
-
     if not user:
         return
-
     if await is_admin(update, context):
         return
 
@@ -129,9 +135,8 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ----- SHORT TEXT -----
     if text and len(text) < MIN_TEXT_LEN:
         await msg.delete()
-
         if user.id in warn_short_text:
-            # Друге порушення — обмеження і повідомлення
+            # друге порушення
             await restrict_user(context, user.id)
             m = await context.bot.send_message(
                 CHAT_ID,
@@ -141,7 +146,6 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             asyncio.create_task(delete_later(m, 15))
         else:
-            # Перше попередження
             warn_short_text.add(user.id)
             m = await context.bot.send_message(
                 CHAT_ID,
@@ -154,12 +158,71 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =============================================
+# ЩОДЕННЕ ПОВІДОМЛЕННЯ
+# =============================================
+
+async def send_daily_message(context: ContextTypes.DEFAULT_TYPE):
+    global daily_message_id
+    # якщо є старе повідомлення — видалити
+    if daily_message_id:
+        try:
+            await context.bot.delete_message(CHAT_ID, daily_message_id)
+        except:
+            pass
+
+    # текст повідомлення
+    text = (
+        "🌅 <b>Доброго ранку!</b>\n\n"
+        "Перед публікацією оголошення, переконайтеся, що ознайомилися з "
+        "📌 <b>правилами публікацій</b> (прикріплені зверху чату) і нічого не порушуєте.\n\n"
+        "Інакше адміністрація 👮‍♂️ та наш 🤖 бот можуть обмежити вас у правах публікації.\n\n"
+        "Бажаємо всім чудового, продуктивного дня! ☕💪"
+    )
+
+    # кнопка або банер
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton("🌐 ЧС обговорення Київ", url="https://t.me/kiev_shat")]]
+    )
+
+    # відправлення без звуку
+    msg = await context.bot.send_message(
+        CHAT_ID,
+        text,
+        parse_mode="HTML",
+        disable_notification=True,
+        reply_markup=keyboard
+    )
+
+    # зберегти id для подальшого видалення
+    daily_message_id = msg.message_id
+
+
+async def schedule_daily(context: ContextTypes.DEFAULT_TYPE):
+    """Планування повідомлення на 7:00 Київського часу"""
+    while True:
+        now_utc = datetime.utcnow()
+        # поточний час у Києві
+        now_kiev = now_utc + KIEV_OFFSET
+        next_send = now_kiev.replace(hour=7, minute=0, second=0, microsecond=0)
+        if now_kiev >= next_send:
+            next_send += timedelta(days=1)
+
+        delta = (next_send - now_kiev).total_seconds()
+        await asyncio.sleep(delta)
+        await send_daily_message(context)
+
+
+# =============================================
 # ЗАПУСК
 # =============================================
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
+
     app.add_handler(MessageHandler(filters.ALL, main_moderation))
+
+    # запуск планувальника щоденного повідомлення
+    app.job_queue.run_once(lambda ctx: asyncio.create_task(schedule_daily(ctx)), 1)
 
     print("BOT STARTED ✅")
     app.run_polling()
