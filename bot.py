@@ -30,8 +30,10 @@ daily_message_id = None
 
 # ================= ПІДРАХУНОК ЕМОДЗІ =================
 def count_emoji(text: str) -> int:
-    pattern = re.compile(r"\p{Emoji=Yes}", flags=re.UNICODE)
-    return len(pattern.findall(text or ""))
+    if not text:
+        return 0
+    pattern = re.compile(r"[\p{Extended_Pictographic}]", flags=re.UNICODE)
+    return len(pattern.findall(text))
 
 
 # ================= СЛУЖБОВІ ФУНКЦІЇ =================
