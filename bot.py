@@ -69,7 +69,9 @@ async def mute_user(context, user_id, hours):
 
 # ================= МОДЕРАЦІЯ =================
 LINK_RE = re.compile(r"(t\.me/|https?://)")
-GOOGLE_MAPS_RE = re.compile(r"maps\.google\.com|goo\.gl/maps")
+GOOGLE_MAPS_RE = re.compile(
+    r"(maps\.google\.com|goo\.gl/maps|maps\.app\.goo\.gl)"
+)
 
 
 async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
