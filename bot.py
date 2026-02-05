@@ -179,13 +179,14 @@ async def send_daily_message(bot):
     )
 
     msg = await bot.send_message(
-        CHAT_ID,
-        text,
-        parse_mode="HTML",
-        disable_notification=True,
-        reply_markup=kb
-    )
-    daily_message_id = msg.message_id
+    CHAT_ID,
+    text,
+    parse_mode="HTML",
+    disable_notification=True,
+    reply_markup=kb
+)
+
+asyncio.create_task(delete_later(msg, 60 * 60 * 12))  # 12 годин
 
 
 async def daily_scheduler(app):
