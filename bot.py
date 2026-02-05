@@ -175,19 +175,18 @@ async def send_daily_message(bot):
     )
 
     kb = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("ЧС обговорення Київ", url="https://t.me/kiev_shat")]]
+        [[InlineKeyboardButton("💬 Чат обговорення", url="https://t.me/kiev_shat")]]
     )
 
     msg = await bot.send_message(
-    CHAT_ID,
-    text,
-    parse_mode="HTML",
-    disable_notification=True,
-    reply_markup=kb
-)
+        CHAT_ID,
+        text,
+        parse_mode="HTML",
+        disable_notification=True,
+        reply_markup=kb
+    )
 
-asyncio.create_task(delete_later(msg, 60 * 60 * 12))  # 12 годин
-
+    asyncio.create_task(delete_later(msg, 60 * 60 * 12))
 
 async def daily_scheduler(app):
     """Фоновий цикл для щоденного повідомлення"""
