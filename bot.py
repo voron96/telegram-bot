@@ -84,19 +84,19 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(msg.to_dict())
     text = msg.text or ""
 
-    if not user:
-    return
-
-# Дозволити повідомлення тільки з цього каналу
-if msg.sender_chat:
-    if msg.sender_chat.id == -1002375622983:
-        return
-    else:
-        await msg.delete()
+        if not user:
         return
 
-if await is_admin(update, context):
-    return
+    # Дозволити повідомлення тільки з цього каналу
+    if msg.sender_chat:
+        if msg.sender_chat.id == -1002375622983:
+            return
+        else:
+            await msg.delete()
+            return
+
+    if await is_admin(update, context):
+        return
 
     # ----- SYSTEM JOIN / LEFT -----
     if msg.new_chat_members or msg.left_chat_member:
