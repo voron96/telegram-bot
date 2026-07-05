@@ -14,7 +14,6 @@ import regex as re
 import asyncio
 from datetime import datetime, timedelta
 
-
 # ================= НАЛАШТУВАННЯ =================
 TOKEN = "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"
 CHAT_ID = -1002190311306  # ID твоєї групи
@@ -27,7 +26,6 @@ KIEV_OFFSET = timedelta(hours=2)
 warn_short_text = set()
 daily_message_id = None
 
-
 # ================= ПІДРАХУНОК ЕМОДЗІ =================
 def count_emoji(text: str) -> int:
     if not text:
@@ -35,16 +33,13 @@ def count_emoji(text: str) -> int:
     pattern = re.compile(r"[\p{Extended_Pictographic}]", flags=re.UNICODE)
     return len(pattern.findall(text))
 
-
 # ================= СЛУЖБОВІ ФУНКЦІЇ =================
 def user_link(user):
     return f'<a href="tg://user?id={user.id}">{user.full_name}</a>'
 
-
 async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     member = await context.bot.get_chat_member(CHAT_ID, update.effective_user.id)
     return member.status in ("administrator", "creator")
-
 
 async def delete_later(msg, sec):
     await asyncio.sleep(sec)
@@ -52,7 +47,6 @@ async def delete_later(msg, sec):
         await msg.delete()
     except:
         pass
-
 
 async def mute_user(context, user_id, hours):
     until = datetime.utcnow() + timedelta(hours=hours)
@@ -66,13 +60,11 @@ async def mute_user(context, user_id, hours):
     except:
         pass
 
-
 # ================= МОДЕРАЦІЯ =================
 LINK_RE = re.compile(r"(t\.me/|https?://)")
 GOOGLE_MAPS_RE = re.compile(
     r"(maps\.google\.com|goo\.gl/maps|maps\.app\.goo\.gl)"
 )
-
 
 async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -81,20 +73,10 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user
     msg = update.effective_message
-    print(msg.to_dict())
     text = msg.text or ""
 
-        if not user:
+    if not user:
         return
-
-    # Дозволити повідомлення тільки з цього каналу
-    if msg.sender_chat:
-        if msg.sender_chat.id == -1002375622983:
-            return
-        else:
-            await msg.delete()
-            return
-
     if await is_admin(update, context):
         return
 
@@ -166,7 +148,6 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             asyncio.create_task(delete_later(m, 10))
         return
 
-
 # ================= ЩОДЕННЕ ПОВІДОМЛЕННЯ =================
 async def send_daily_message(bot):
     global daily_message_id
@@ -208,7 +189,6 @@ async def daily_scheduler(app):
         await asyncio.sleep((next_time - now_kiev).total_seconds())
         await send_daily_message(app.bot)
 
-
 # ================= ЗАПУСК =================
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
@@ -219,7 +199,6 @@ def main():
 
     print("BOT STARTED ✅")
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
