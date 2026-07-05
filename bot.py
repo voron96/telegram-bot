@@ -81,6 +81,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user
     msg = update.effective_message
+    print(msg.to_dict())
     text = msg.text or ""
 
     if not user:
