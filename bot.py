@@ -165,9 +165,12 @@ async def send_daily_message(bot):
         "Всім працездатного дня! ☕💪"
     )
 
-    kb = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("💬 Чат обговорення", url="https://t.me/kiev_shat")]]
-    )
+   kb = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton("📢 Канал", url="https://t.me/robota_kiev_workk"),
+        InlineKeyboardButton("💬 Чат", url="https://t.me/kiev_shat")
+    ]
+])
 
     msg = await bot.send_message(
         CHAT_ID,
