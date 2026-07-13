@@ -85,7 +85,6 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             CHAT_ID,
             "📩 З каналу",
             disable_notification=True,
-            reply_to_message_id=msg.message_id,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("📣 Перейти в канал", url=CHANNEL_LINK)]
             ])
