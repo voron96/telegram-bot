@@ -78,28 +78,24 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     text = msg.text or ""
 
-      # ----- ДОЗВОЛИТИ ПУБЛІКАЦІЇ ВІД ОФІЦІЙНОГО КАНАЛУ -----
-if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
+          # ----- ДОЗВОЛИТИ ПУБЛІКАЦІЇ ВІД ОФІЦІЙНОГО КАНАЛУ -----
+    if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
-    await context.bot.send_message(
-        CHAT_ID,
-        "💌 <b>Повідомлення з каналу</b>",
-        parse_mode="HTML",
-        disable_notification=True,
-        reply_markup=InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton(
-                    "↗️ Перейти в канал",
-                    url="https://t.me/robota_kiev_workk"
-                )
-            ]
-        ])
-    )
+        await context.bot.send_message(
+            CHAT_ID,
+            "💌 <b>Повідомлення з каналу</b>",
+            parse_mode="HTML",
+            disable_notification=True,
+            reply_markup=InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton(
+                        "↗️ Перейти в канал",
+                        url="https://t.me/robota_kiev_workk"
+                    )
+                ]
+            ])
+        )
 
-    return
-except:
-    pass
-        asyncio.create_task(delete_later(banner, 15))
         return
 
     if not user:
