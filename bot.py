@@ -93,8 +93,6 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 asyncio.create_task(delete_later(banner, 15))
 return
-        asyncio.create_task(delete_later(banner, 15))
-        return
 
     if not user:
         return
