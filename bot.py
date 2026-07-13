@@ -78,22 +78,19 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     text = msg.text or ""
 
-        # ----- ДОЗВОЛИТИ ПУБЛІКАЦІЇ ВІД ОФІЦІЙНОГО КАНАЛУ -----
-    if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
+           # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
+    if (
+        msg.sender_chat
+        and msg.sender_chat.id == CHANNEL_ID
+    ):
 
         await context.bot.send_message(
             CHAT_ID,
-            '💌 Повідомлення з каналу <a href="https://t.me/robota_kiev_workk">КАНАЛ↗️</a>',
+            '⬆️ Повідомлення з каналу <a href="https://t.me/robota_kiev_workk">КАНАЛ↗️</a>',
             parse_mode="HTML",
             disable_notification=True
         )
 
-        return
-
-    if not user:
-        return
-
-    if await is_admin(update, context):
         return
 
     # ----- SYSTEM JOIN / LEFT -----
