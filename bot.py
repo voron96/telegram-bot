@@ -94,6 +94,7 @@ if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
     if not user and not msg.sender_chat:
     return
+    
     if await is_admin(update, context):
         return
 
