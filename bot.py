@@ -18,6 +18,9 @@ from datetime import datetime, timedelta
 TOKEN = "8354126069:AAHSDjqmoh9qDMzHtIr4-ZM1BYlBHYz3n4s"
 CHAT_ID = -1002190311306  # ID твоєї групи
 
+CHANNEL_ID = -1002375622983  # ID офіційного каналу
+CHANNEL_LINK = "https://t.me/robota_kiev_workk"
+
 MIN_TEXT_LEN = 50
 MAX_EMOJI = 8
 MUTE_HOURS = 6
