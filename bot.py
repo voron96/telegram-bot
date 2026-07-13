@@ -78,20 +78,18 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     text = msg.text or ""
 
-           # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
-    if (
-        msg.sender_chat
-        and msg.sender_chat.id == CHANNEL_ID
-    ):
+          # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
+if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
-        await context.bot.send_message(
-            CHAT_ID,
-            '⬆️ Повідомлення з <a href="https://t.me/robota_kiev_workk">КАНАЛУ↗️</a>',
-            parse_mode="HTML",
-            disable_notification=True
-        )
+    await context.bot.send_message(
+        CHAT_ID,
+        '⬆️ <a href="https://t.me/robota_kiev_workk"><b>Повідомлення з КАНАЛУ ↗️</b></a>',
+        parse_mode="HTML",
+        disable_notification=True,
+        reply_to_message_id=msg.message_id
+    )
 
-        return
+    return
 
     # ----- SYSTEM JOIN / LEFT -----
     if msg.new_chat_members or msg.left_chat_member:
