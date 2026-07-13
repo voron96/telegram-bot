@@ -92,11 +92,11 @@ if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
     asyncio.create_task(delete_later(banner, 15))
     return
 
-    if not user and not msg.sender_chat:
+   if not user:
     return
-    
-    if await is_admin(update, context):
-        return
+
+if await is_admin(update, context):
+    return
 
     # ----- SYSTEM JOIN / LEFT -----
     if msg.new_chat_members or msg.left_chat_member:
