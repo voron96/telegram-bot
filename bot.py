@@ -82,21 +82,13 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
         await context.bot.send_message(
-            CHAT_ID,
-            "💌 <b>Повідомлення з каналу</b>",
-            parse_mode="HTML",
-            disable_notification=True,
-            reply_markup=InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton(
-                        "↗️ Перейти в канал",
-                        url="https://t.me/robota_kiev_workk"
-                    )
-                ]
-            ])
-        )
+    CHAT_ID,
+    '💌 Повідомлення з каналу <a href="https://t.me/robota_kiev_workk">↗️</a>',
+    parse_mode="HTML",
+    disable_notification=True
+)
 
-        return
+return
 
     if not user:
         return
