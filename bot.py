@@ -71,7 +71,7 @@ GOOGLE_MAPS_RE = re.compile(
 
 async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-   async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not update.effective_message or update.effective_chat.id != CHAT_ID:
         return
@@ -82,9 +82,6 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     msg = update.effective_message
     text = msg.text or ""
-   user = update.effective_user
-msg = update.effective_message
-text = msg.text or ""
 
     # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
