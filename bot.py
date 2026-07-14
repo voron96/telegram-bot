@@ -74,14 +74,11 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_message or update.effective_chat.id != CHAT_ID:
         return
 
-    if update.edited_message or update.edited_channel_post:
-        return
-
     user = update.effective_user
     msg = update.effective_message
     text = msg.text or ""
 
-    # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
+     # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
         await context.bot.send_message(
@@ -94,6 +91,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         return
+
     # ----- SYSTEM JOIN / LEFT -----
     if msg.new_chat_members or msg.left_chat_member:
         try:
@@ -102,6 +100,11 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         return
         
+    # ----- SYSTEM JOIN / LEFT -----
+    if msg.new_chat_members or msg.left_chat_member:
+        await msg.delete()
+        return
+
     # ----- USERNAME REQUIRED -----
     if not user.username:
         await msg.delete()
@@ -211,13 +214,10 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(MessageHandler(filters.ALL, main_moderation))
 
-   def main():
-    app = ApplicationBuilder().token(TOKEN).build()
-
-    app.add_handler(MessageHandler(filters.ALL, main_moderation))
+    loop = asyncio.get_event_loop()
+    loop.create_task(daily_scheduler(app))
 
     print("BOT STARTED ✅")
-
     app.run_polling()
 
 if __name__ == "__main__":
