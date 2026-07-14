@@ -213,12 +213,13 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(MessageHandler(filters.ALL, main_moderation))
 
-    app.job_queue.run_once(
-        lambda ctx: asyncio.create_task(daily_scheduler(app)),
-        when=1
-    )
+   def main():
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(MessageHandler(filters.ALL, main_moderation))
 
     print("BOT STARTED ✅")
+
     app.run_polling()
 
 if __name__ == "__main__":
