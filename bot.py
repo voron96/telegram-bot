@@ -78,23 +78,27 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     text = msg.text or ""
 
-   # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
-if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
+    # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
+    if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
-    try:
-        await context.bot.unpin_all_chat_messages(CHAT_ID)
-    except Exception as e:
-        print("UNPIN ERROR:", e)
+        # Якщо це редагування поста з каналу — нічого не робимо
+        if update.edited_channel_post:
+            return
 
-    await context.bot.send_message(
-        chat_id=CHAT_ID,
-        text='⬆️ <a href="https://t.me/robota_kiev_workk"><b>Повідомлення з КАНАЛУ ↗️</b></a>',
-        parse_mode="HTML",
-        disable_notification=True,
-        disable_web_page_preview=True,
-    )
+        try:
+            await context.bot.unpin_all_chat_messages(chat_id=CHAT_ID)
+        except Exception as e:
+            print("UNPIN ERROR:", e)
 
-    return
+        await context.bot.send_message(
+            chat_id=CHAT_ID,
+            text='⬆️ <a href="https://t.me/robota_kiev_workk"><b>Повідомлення з КАНАЛУ ↗️</b></a>',
+            parse_mode="HTML",
+            disable_notification=True,
+            disable_web_page_preview=True,
+        )
+
+        return
     # ----- SYSTEM JOIN / LEFT -----
     if msg.new_chat_members or msg.left_chat_member:
         try:
