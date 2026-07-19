@@ -204,7 +204,7 @@ async def send_daily_message(bot):
         "👋 <b>Вітаємо у PartTimeJobHub!</b>\n\n"
 
         "📋 Перед публікацією оголошення ознайомтеся з "
-        '<a href="https://telegram.me/kiev_part_time_job/68858">правилами</a>.\n\n'
+        '<a href="https://telegram.me/kiev_part_time_job/68858">правилами↗️</a>.\n\n'
 
         "⚠️ За порушення правил бот або адміністрація можуть обмежити можливість "
         "публікації оголошень без додаткового попередження.\n\n"
