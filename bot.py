@@ -257,13 +257,8 @@ def main():
     loop.create_task(daily_scheduler(app))
 
     print("BOT STARTED ✅")
-    app.run_polling(
-    drop_pending_updates=True,
-    timeout=30,
-    read_timeout=30,
-    write_timeout=30,
-    connect_timeout=30,
-    pool_timeout=30,
+   app.run_polling(
+    drop_pending_updates=True
 )
 
 if __name__ == "__main__":
