@@ -193,6 +193,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ================= ЩОДЕННЕ ПОВІДОМЛЕННЯ =================
 async def send_daily_message(bot):
     global daily_message_id
+
     if daily_message_id:
         try:
             await bot.delete_message(CHAT_ID, daily_message_id)
@@ -200,24 +201,40 @@ async def send_daily_message(bot):
             pass
 
     text = (
-        "📮 <b>Доброго ранку!</b>\n\n"
-        "Перед публікацією оголошення, переконайтеся що ознайомилися з "
-        "🔧 <b>правилами публікації</b> (прикріплені зверху чату) і нічого не порушуєте.\n\n"
-        "Інакше адміністрація +написаний бот буде обмежувати в правах публікації.\n"
-        "Всім працездатного дня! ☕💪"
+        "👋 <b>Вітаємо у PartTimeJobHub!</b>\n\n"
+
+        "📋 Перед публікацією оголошення ознайомтеся з "
+        '<a href="https://telegram.me/kiev_part_time_job/68858">правилами</a>.\n\n'
+
+        "⚠️ За порушення правил бот або адміністрація можуть обмежити можливість "
+        "публікації оголошень без додаткового попередження.\n\n"
+
+        "У каналі публікуються вакансії від перевірених замовників."
     )
 
-    kb = InlineKeyboardMarkup(
-        [[InlineKeyboardButton("💬 Чат обговорення", url="https://t.me/kiev_shat")]]
-    )
+    kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "💬 Чат Києва",
+                url="https://t.me/kiev_shat"
+            ),
+            InlineKeyboardButton(
+                "📢 Канал ↗️",
+                url="https://t.me/robota_kiev_workk"
+            )
+        ]
+    ])
 
     msg = await bot.send_message(
         CHAT_ID,
         text,
         parse_mode="HTML",
         disable_notification=True,
+        disable_web_page_preview=True,
         reply_markup=kb
     )
+
+    daily_message_id = msg.message_id
 
     asyncio.create_task(delete_later(msg, 60 * 60 * 12))
 
