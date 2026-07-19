@@ -74,9 +74,18 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_message or update.effective_chat.id != CHAT_ID:
         return
 
-    user = update.effective_user
+        user = update.effective_user
     msg = update.effective_message
     text = msg.text or ""
+
+    # ----- НЕ ЧІПАТИ АДМІНІВ -----
+    if user:
+        try:
+            member = await context.bot.get_chat_member(CHAT_ID, user.id)
+            if member.status in ("administrator", "creator"):
+                return
+        except:
+            pass
 
         # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
