@@ -125,6 +125,9 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ----- USERNAME REQUIRED -----
+    user = update.effective_user
+    msg = update.effective_message
+    text = msg.text or ""
     if not user.username:
         await msg.delete()
         m = await context.bot.send_message(
