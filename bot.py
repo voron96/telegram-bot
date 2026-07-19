@@ -78,12 +78,11 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     text = msg.text or ""
 
-    # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
+   # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
 if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
-    # автоматично відкріпити повідомлення, якщо Telegram його прикріпив
     try:
-        await context.bot.unpin_all_chat_messages(CHAT_ID)
+        await context.bot.unpin_all_chat_messages(chat_id=CHAT_ID)
     except:
         pass
 
