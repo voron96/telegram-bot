@@ -257,7 +257,7 @@ def main():
     loop.create_task(daily_scheduler(app))
 
     print("BOT STARTED ✅")
-   app.run_polling(
+    app.run_polling(
     drop_pending_updates=True
 )
 
