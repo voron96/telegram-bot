@@ -78,21 +78,18 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     text = msg.text or ""
 
-    # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
+        # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
-        # Якщо це редагування поста з каналу — нічого не робимо
-        if update.edited_channel_post:
-            return
-
         try:
-    if msg.is_automatic_forward:
-        await context.bot.unpin_chat_message(
-            chat_id=CHAT_ID,
-            message_id=msg.message_id
-        )
-except Exception as e:
-    print("UNPIN ERROR:", e)
+            if msg.is_automatic_forward:
+                await context.bot.unpin_chat_message(
+                    chat_id=CHAT_ID,
+                    message_id=msg.message_id
+                )
+        except Exception as e:
+            print("UNPIN ERROR:", e)
+
         await context.bot.send_message(
             chat_id=CHAT_ID,
             text='⬆️ <a href="https://t.me/robota_kiev_workk"><b>Повідомлення з КАНАЛУ ↗️</b></a>',
