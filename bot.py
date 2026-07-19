@@ -79,14 +79,16 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = msg.text or ""
 
     # ----- НЕ ЧІПАТИ АДМІНІВ -----
-    if user:
-        try:
-            member = await context.bot.get_chat_member(CHAT_ID, user.id)
-            if member.status in ("administrator", "creator"):
-                return
-        except:
-            pass
-
+    if update.effective_user:
+    try:
+        member = await context.bot.get_chat_member(
+            CHAT_ID,
+            update.effective_user.id
+        )
+        if member.status in ("administrator", "creator"):
+            return
+    except Exception as e:
+        print(e)
         # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
