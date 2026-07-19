@@ -104,7 +104,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             chat_id=CHAT_ID,
-            text='⬆️ <a href="https://t.me/robota_kiev_workk"><b>Повідомлення з КАНАЛУ ↗️</b></a>',
+            text='⬆️ <a href="https://t.me/robota_kiev_workk"><b>Публікація з КАНАЛУ ↗️</b></a>',
             parse_mode="HTML",
             disable_notification=True,
             disable_web_page_preview=True,
