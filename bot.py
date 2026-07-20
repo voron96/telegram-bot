@@ -96,7 +96,8 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
     if getattr(msg, "edit_date", None):
-        return
+        
+    return
 
     try:
         if getattr(msg, "is_automatic_forward", False):
