@@ -41,6 +41,7 @@ def user_link(user):
     return f'<a href="tg://user?id={user.id}">{user.full_name}</a>'
 
 async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("MESSAGE RECEIVED")
     member = await context.bot.get_chat_member(CHAT_ID, update.effective_user.id)
     return member.status in ("administrator", "creator")
 
