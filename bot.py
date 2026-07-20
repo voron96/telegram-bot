@@ -159,23 +159,25 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.delete()
         return
 
-    # ----- USERNAME REQUIRED -----
+        # ----- USERNAME REQUIRED -----
     user = update.effective_user
     msg = update.effective_message
     text = msg.text or ""
+
     if not user.username:
         await msg.delete()
-    m = await context.bot.send_message(
-    CHAT_ID,
-    f"⚠️ {user_link(user)}\n\n"
-    "Публікація оголошення можлива лише на правах реклами.\n"
-    "Зверніться до адміністрації.",
-    parse_mode="HTML",
-    disable_notification=True
-)
 
-asyncio.create_task(delete_later(m, 15))
-return
+        m = await context.bot.send_message(
+            CHAT_ID,
+            f"⚠️ {user_link(user)}\n\n"
+            "Публікація оголошення можлива лише на правах реклами.\n"
+            "Зверніться до адміністрації.",
+            parse_mode="HTML",
+            disable_notification=True
+        )
+
+        asyncio.create_task(delete_later(m, 15))
+        return
 
     # ----- LINKS -----
     if LINK_RE.search(text) and not GOOGLE_MAPS_RE.search(text):
