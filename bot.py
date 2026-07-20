@@ -24,7 +24,7 @@ CHANNEL_LINK = "https://t.me/robota_kiev_workk"
 MIN_TEXT_LEN = 50
 MAX_EMOJI = 8
 MUTE_HOURS = 6
-KIEV_OFFSET = timedelta(hours=2)
+KIEV_OFFSET = timedelta(hours=3)
 
 warn_short_text = set()
 daily_message_id = None
