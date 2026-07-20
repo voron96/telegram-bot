@@ -92,31 +92,30 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             print(e)
 
-    # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
-if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
+        # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
+    if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
-    if getattr(msg, "edit_date", None):
-        
-    return
+        if getattr(msg, "edit_date", None):
+            return
 
-    try:
-        if getattr(msg, "is_automatic_forward", False):
-            await context.bot.unpin_chat_message(
-                chat_id=CHAT_ID,
-                message_id=msg.message_id,
-            )
-    except:
-        pass
+        try:
+            if getattr(msg, "is_automatic_forward", False):
+                await context.bot.unpin_chat_message(
+                    chat_id=CHAT_ID,
+                    message_id=msg.message_id,
+                )
+        except:
+            pass
 
-    await context.bot.send_message(
-        chat_id=CHAT_ID,
-        text='⬆️ <a href="https://t.me/robota_kiev_workk"><b>Повідомлення з КАНАЛУ ↗️</b></a>',
-        parse_mode="HTML",
-        disable_notification=True,
-        disable_web_page_preview=True,
-    )
+        await context.bot.send_message(
+            chat_id=CHAT_ID,
+            text='⬆️ <a href="https://t.me/robota_kiev_workk"><b>Повідомлення з КАНАЛУ ↗️</b></a>',
+            parse_mode="HTML",
+            disable_notification=True,
+            disable_web_page_preview=True,
+        )
 
-    return
+        return
     
     # ----- SYSTEM JOIN / LEFT -----
     if msg.new_chat_members or msg.left_chat_member:
