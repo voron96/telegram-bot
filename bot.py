@@ -256,16 +256,20 @@ async def daily_scheduler(app):
 
 # ================= ЗАПУСК =================
 def main():
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = (
+        ApplicationBuilder()
+        .token(TOKEN)
+        .post_init(post_init)
+        .build()
+    )
+
     app.add_handler(MessageHandler(filters.ALL, main_moderation))
 
-    loop = asyncio.get_event_loop()
-    loop.create_task(daily_scheduler(app))
-
     print("BOT STARTED ✅")
+
     app.run_polling(
-    drop_pending_updates=True
-)
+        drop_pending_updates=True
+    )
 
 if __name__ == "__main__":
     main()
