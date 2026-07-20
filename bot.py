@@ -91,35 +91,6 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
         except Exception as e:
             print(e)
-            
-                # ----- USERNAME АБО ТЕГ -----
-    has_tag = False
-
-    if msg.entities:
-        for entity in msg.entities:
-            if entity.type in ("mention", "text_mention"):
-                has_tag = True
-                break
-
-    if not user.username and not has_tag:
-        try:
-            await msg.delete()
-        except:
-            pass
-
-        warn = await context.bot.send_message(
-            CHAT_ID,
-            f"{user_link(user)}\n\n"
-            "❌ Для публікації оголошення необхідно:\n"
-            "• мати @username\n"
-            "або\n"
-            "• позначити (тегнути) користувача у повідомленні.",
-            parse_mode="HTML",
-            disable_notification=True,
-        )
-
-        asyncio.create_task(delete_later(warn, 15))
-        return
 
         # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
