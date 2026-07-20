@@ -73,6 +73,8 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not update.effective_message or update.effective_chat.id != CHAT_ID:
         return
+    if update.edited_message or update.edited_channel_post:
+    return
 
         user = update.effective_user
     msg = update.effective_message
@@ -93,24 +95,29 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
-        try:
-            if msg.is_automatic_forward:
-                await context.bot.unpin_chat_message(
-                    chat_id=CHAT_ID,
-                    message_id=msg.message_id
-                )
-        except Exception as e:
-            print("UNPIN ERROR:", e)
-
-        await context.bot.send_message(
-            chat_id=CHAT_ID,
-            text='⬆️ <a href="https://t.me/robota_kiev_workk"><b>Публікація з КАНАЛУ ↗️</b></a>',
-            parse_mode="HTML",
-            disable_notification=True,
-            disable_web_page_preview=True,
-        )
-
+    # Якщо це редагування автоматично пересланого повідомлення — нічого не робимо
+    if getattr(msg, "edit_date", None):
         return
+
+    # Якщо повідомлення автоматично переслане з прив'язаного каналу — знімаємо закріплення
+    if getattr(msg, "is_automatic_forward", False):
+        try:
+            await context.bot.unpin_chat_message(
+                chat_id=CHAT_ID,
+                message_id=msg.message_id,
+            )
+        except:
+            pass
+
+    await context.bot.send_message(
+        chat_id=CHAT_ID,
+        text='⬆️ <a href="https://t.me/robota_kiev_workk"><b>Повідомлення з КАНАЛУ ↗️</b></a>',
+        parse_mode="HTML",
+        disable_notification=True,
+        disable_web_page_preview=True,
+    )
+
+    return
     # ----- SYSTEM JOIN / LEFT -----
     if msg.new_chat_members or msg.left_chat_member:
         try:
