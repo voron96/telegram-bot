@@ -253,7 +253,9 @@ async def daily_scheduler(app):
             next_time += timedelta(days=1)
         await asyncio.sleep((next_time - now_kiev).total_seconds())
         await send_daily_message(app.bot)
-
+        
+async def post_init(app):
+    asyncio.create_task(daily_scheduler(app))
 # ================= ЗАПУСК =================
 def main():
     app = (
