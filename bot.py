@@ -107,18 +107,16 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
 
-        warn = await context.bot.send_message(
+        m = await context.bot.send_message(
             CHAT_ID,
-            f"{user_link(user)}\n\n"
-            "❌ Для публікації оголошення необхідно:\n"
-            "• мати @username\n"
-            "або\n"
-            "• позначити (тегнути) користувача у повідомленні.",
+            f"⚠️ {user_link(user)}\n\n"
+            "Публікація оголошення можлива лише на правах реклами.\n"
+            "Зверніться до адміністрації.",
             parse_mode="HTML",
-            disable_notification=True,
+            disable_notification=True
         )
 
-        asyncio.create_task(delete_later(warn, 15))
+        asyncio.create_task(delete_later(m, 15))
         return
 
         # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
@@ -154,31 +152,6 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         return
         
-    # ----- SYSTEM JOIN / LEFT -----
-    if msg.new_chat_members or msg.left_chat_member:
-        await msg.delete()
-        return
-
-        # ----- USERNAME REQUIRED -----
-    user = update.effective_user
-    msg = update.effective_message
-    text = msg.text or ""
-
-    if not user.username:
-        await msg.delete()
-
-        m = await context.bot.send_message(
-            CHAT_ID,
-            f"⚠️ {user_link(user)}\n\n"
-            "Публікація оголошення можлива лише на правах реклами.\n"
-            "Зверніться до адміністрації.",
-            parse_mode="HTML",
-            disable_notification=True
-        )
-
-        asyncio.create_task(delete_later(m, 15))
-        return
-
     # ----- LINKS -----
     if LINK_RE.search(text) and not GOOGLE_MAPS_RE.search(text):
         await msg.delete()
