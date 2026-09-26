@@ -108,9 +108,9 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message_id=msg.message_id,
                 reaction=["😎"]
            )
-       except Exception as e:
-           print(e)
-       return    
+        except Exception as e:
+            print(e)
+        return    
 
         # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
