@@ -198,7 +198,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
              # ----- ПОВІДОМЛЕННЯ ДОЗВОЛЕНЕ -----
     try:
-    await context.bot.set_message_reaction(
+        await context.bot.set_message_reaction(
         chat_id=CHAT_ID,
         message_id=msg.message_id,
         reaction=["😎"]
