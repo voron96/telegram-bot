@@ -257,9 +257,13 @@ async def daily_scheduler(app):
             next_time += timedelta(days=1)
         await asyncio.sleep((next_time - now_kiev).total_seconds())
         await send_daily_message(app.bot)
-        
+
+
 async def post_init(app):
+    await app.bot.delete_webhook(drop_pending_updates=True)
     asyncio.create_task(daily_scheduler(app))
+
+
 # ================= ЗАПУСК =================
 def main():
     app = (
@@ -277,5 +281,7 @@ def main():
         drop_pending_updates=True
     )
 
+
 if __name__ == "__main__":
+    main()
     main()
