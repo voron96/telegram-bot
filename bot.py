@@ -2,8 +2,7 @@ from telegram import (
     Update,
     ChatPermissions,
     InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    ReactionTypeEmoji
+    InlineKeyboardMarkup
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -199,13 +198,13 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
              # ----- ПОВІДОМЛЕННЯ ДОЗВОЛЕНЕ -----
     try:
-        await context.bot.set_message_reaction(
-            chat_id=CHAT_ID,
-            message_id=msg.message_id,
-            reaction=["😎"]
-        )
+    await context.bot.set_message_reaction(
+        chat_id=CHAT_ID,
+        message_id=msg.message_id,
+        reaction=["😎"]
+    )
     except Exception as e:
-        print(e)
+    print(e)
 
 # ================= ЩОДЕННЕ ПОВІДОМЛЕННЯ =================
 async def send_daily_message(bot):
