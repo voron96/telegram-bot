@@ -197,15 +197,15 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             asyncio.create_task(delete_later(m, 10))
         return
         
-           # ----- ПОВІДОМЛЕННЯ ДОЗВОЛЕНЕ -----
-try:
-    await context.bot.set_message_reaction(
-        chat_id=CHAT_ID,
-        message_id=msg.message_id,
-        reaction=["😎"]
-    )
-except Exception as e:
-    print(e)
+             # ----- ПОВІДОМЛЕННЯ ДОЗВОЛЕНЕ -----
+    try:
+        await context.bot.set_message_reaction(
+            chat_id=CHAT_ID,
+            message_id=msg.message_id,
+            reaction=["😎"]
+        )
+    except Exception as e:
+        print(e)
 
 # ================= ЩОДЕННЕ ПОВІДОМЛЕННЯ =================
 async def send_daily_message(bot):
