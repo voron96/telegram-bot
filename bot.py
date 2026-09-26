@@ -91,6 +91,26 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
         except Exception as e:
             print(e)
+            
+        # ----- ТЕГ У ПОВІДОМЛЕННІ -----
+    has_tag = False
+
+    if msg.entities:
+        for entity in msg.entities:
+            if entity.type in ("mention", "text_mention"):
+                has_tag = True
+                break
+
+    if has_tag:
+        try:
+            await context.bot.set_message_reaction(
+                chat_id=CHAT_ID,
+                message_id=msg.message_id,
+                reaction=["😎"]
+           )
+       except Exception as e:
+           print(e)
+       return    
 
         # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
@@ -196,16 +216,6 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             asyncio.create_task(delete_later(m, 10))
         return
         
-             # ----- ПОВІДОМЛЕННЯ ДОЗВОЛЕНЕ -----
-    try:
-        await context.bot.set_message_reaction(
-        chat_id=CHAT_ID,
-        message_id=msg.message_id,
-        reaction=["😎"]
-    )
-    except Exception as e:
-        print(e)
-
 # ================= ЩОДЕННЕ ПОВІДОМЛЕННЯ =================
 async def send_daily_message(bot):
     global daily_message_id
