@@ -92,7 +92,19 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             print(e)
             
-        # ----- ТЕГ У ПОВІДОМЛЕННІ -----
+            # ----- НЕ ЧІПАТИ АДМІНІВ -----
+    if update.effective_user:
+        try:
+            member = await context.bot.get_chat_member(
+                CHAT_ID,
+                update.effective_user.id
+            )
+            if member.status in ("administrator", "creator"):
+                return
+        except Exception as e:
+            print(e)
+
+    # ----- ТЕГ У ПОВІДОМЛЕННІ -----
     has_tag = False
 
     if msg.entities:
@@ -107,10 +119,10 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=CHAT_ID,
                 message_id=msg.message_id,
                 reaction=["😎"]
-           )
+            )
         except Exception as e:
             print(e)
-        return    
+        return
 
         # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
