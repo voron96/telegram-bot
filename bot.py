@@ -204,7 +204,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reaction=["😎"]
     )
     except Exception as e:
-    print(e)
+        print(e)
 
 # ================= ЩОДЕННЕ ПОВІДОМЛЕННЯ =================
 async def send_daily_message(bot):
