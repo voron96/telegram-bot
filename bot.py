@@ -98,23 +98,28 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
         except Exception as e:
             print(e)
-
-        # ----- НЕ ЧІПАТИ ПОВІДОМЛЕННЯ З ТЕГОМ -----
+        
+            # ----- НЕ ЧІПАТИ ПОВІДОМЛЕННЯ З ТЕГОМ -----
     has_tag = False
 
-    # Telegram-тег @username або згадування через Telegram
     if msg.entities:
         for entity in msg.entities:
             if entity.type in ("mention", "text_mention"):
                 has_tag = True
                 break
 
-    # Тег у підписі до фото/відео/файлу
     if not has_tag and getattr(msg, "caption_entities", None):
         for entity in msg.caption_entities:
             if entity.type in ("mention", "text_mention"):
                 has_tag = True
                 break
+
+    if not has_tag:
+        if re.search(r"(?<![\w@])@[A-Za-z0-9_]{5,32}", text):
+            has_tag = True
+
+    if has_tag:
+        return
 
     # Додаткова перевірка звичайного @username у тексті
     if not has_tag:
