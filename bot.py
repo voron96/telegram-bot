@@ -64,7 +64,7 @@ async def mute_user(context, user_id, hours):
     except:
         pass
         
-        async def unmute_user(context, user_id):
+async def unmute_user(context, user_id):
     try:
         await context.bot.restrict_chat_member(
             CHAT_ID,
