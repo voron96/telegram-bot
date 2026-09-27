@@ -64,9 +64,16 @@ async def mute_user(context, user_id, hours):
         pass
 
 # ================= МОДЕРАЦІЯ =================
-LINK_RE = re.compile(r"(t\.me/|https?://)")
+LINK_RE = re.compile(
+    r"(https?://|www\.|t\.me/|telegram\.me/|telegram\.dog/)",
+    re.IGNORECASE
+)
+
 GOOGLE_MAPS_RE = re.compile(
-    r"(maps\.google\.com|goo\.gl/maps|maps\.app\.goo\.gl)"
+    r"(https?://)?(www\.)?"
+    r"(maps\.google\.com|google\.[a-z.]+/maps|"
+    r"goo\.gl/maps|maps\.app\.goo\.gl)",
+    re.IGNORECASE
 )
 
 async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -133,7 +140,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ----- USERNAME REQUIRED -----
     user = update.effective_user
     msg = update.effective_message
-    text = msg.text or ""
+    text = msg.text or msg.caption or ""
     if not user.username:
         await msg.delete()
         m = await context.bot.send_message(
