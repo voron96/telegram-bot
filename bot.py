@@ -133,11 +133,6 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         return
         
-    # ----- SYSTEM JOIN / LEFT -----
-    if msg.new_chat_members or msg.left_chat_member:
-        await msg.delete()
-        return
-
     # ----- USERNAME REQUIRED -----
     user = update.effective_user
     msg = update.effective_message
