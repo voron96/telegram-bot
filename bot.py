@@ -28,7 +28,6 @@ KIEV_OFFSET = timedelta(hours=3)
 
 warn_short_text = set()
 daily_message_id = None
-known_users = {}
 
 # ================= ПІДРАХУНОК ЕМОДЗІ =================
 def count_emoji(text: str) -> int:
@@ -63,32 +62,6 @@ async def mute_user(context, user_id, hours):
         )
     except:
         pass
-        
-async def unmute_user(context, user_id):
-    try:
-        await context.bot.restrict_chat_member(
-            CHAT_ID,
-            user_id,
-            ChatPermissions(
-                can_send_messages=True,
-                can_send_audios=True,
-                can_send_documents=True,
-                can_send_photos=True,
-                can_send_videos=True,
-                can_send_video_notes=True,
-                can_send_voice_notes=True,
-                can_send_polls=True,
-                can_send_other_messages=True,
-                can_add_web_page_previews=True,
-                can_invite_users=True,
-                can_pin_messages=True,
-                can_manage_topics=True,
-            )
-        )
-        return True
-    except Exception as e:
-        print("UNMUTE ERROR:", e)
-        return False
 
 # ================= МОДЕРАЦІЯ =================
 LINK_RE = re.compile(
@@ -114,14 +87,6 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     text = msg.text or ""
 
-    # ----- ЗАПАМ'ЯТОВУЄМО КОРИСТУВАЧА -----
-    if user and user.username:
-        known_users[user.username.lower()] = user.id
-
-    # ----- ON | @USERNAME -----
-    if text.lower().startswith("on|"):
-        ...
-    
     # ----- НЕ ЧІПАТИ АДМІНІВ -----
     if update.effective_user:
         try:
@@ -133,44 +98,6 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
         except Exception as e:
             print(e)
-        
-            # ----- НЕ ЧІПАТИ ПОВІДОМЛЕННЯ З ТЕГОМ -----
-    has_tag = False
-
-    if msg.entities:
-        for entity in msg.entities:
-            if entity.type in ("mention", "text_mention"):
-                has_tag = True
-                break
-
-    if not has_tag and getattr(msg, "caption_entities", None):
-        for entity in msg.caption_entities:
-            if entity.type in ("mention", "text_mention"):
-                has_tag = True
-                break
-
-    if not has_tag:
-        if re.search(r"(?<![\w@])@[A-Za-z0-9_]{5,32}", text):
-            has_tag = True
-
-    if has_tag:
-        return
-
-    # Додаткова перевірка звичайного @username у тексті
-    if not has_tag:
-        if re.search(r"(?<![\w@])@[A-Za-z0-9_]{5,32}", text):
-            has_tag = True
-
-    if has_tag:
-        try:
-            await context.bot.set_message_reaction(
-                chat_id=CHAT_ID,
-                message_id=msg.message_id,
-                reaction=["😎"]
-            )
-        except Exception as e:
-            print(e)
-        return
 
         # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
@@ -363,4 +290,5 @@ def main():
 
 
 if __name__ == "__main__":
+    main()
     main()
