@@ -87,7 +87,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     text = msg.text or ""
 
-    # ----- НЕ ЧІПАТИ АДМІНІВ -----
+        # ----- НЕ ЧІПАТИ АДМІНІВ -----
     if update.effective_user:
         try:
             member = await context.bot.get_chat_member(
@@ -98,6 +98,26 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
         except Exception as e:
             print(e)
+
+    # ----- НЕ ЧІПАТИ ПОВІДОМЛЕННЯ З ТЕГОМ -----
+    has_tag = False
+
+    if msg.entities:
+        for entity in msg.entities:
+            if entity.type in ("mention", "text_mention"):
+                has_tag = True
+                break
+
+    if has_tag:
+        try:
+            await context.bot.set_message_reaction(
+                chat_id=CHAT_ID,
+                message_id=msg.message_id,
+                reaction=["😎"]
+            )
+        except Exception as e:
+            print(e)
+        return
 
         # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
