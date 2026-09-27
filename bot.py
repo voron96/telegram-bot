@@ -99,20 +99,21 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             print(e)
 
-        # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
+            # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
 
         if getattr(msg, "edit_date", None):
             return
 
         try:
-            if getattr(msg, "is_automatic_forward", False):
-                await context.bot.unpin_chat_message(
-                    chat_id=CHAT_ID,
-                    message_id=msg.message_id,
-                )
+            await context.bot.unpin_chat_message(
+                chat_id=CHAT_ID,
+                message_id=msg.message_id,
+            )
         except:
             pass
+
+        return
 
         await context.bot.send_message(
             chat_id=CHAT_ID,
