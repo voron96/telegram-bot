@@ -15,7 +15,7 @@ import asyncio
 from datetime import datetime, timedelta
 
 # ================= НАЛАШТУВАННЯ =================
-TOKEN = "8354126069:AAG7JioILYOzlvJYvYwW31w9pkd2LnhA3X0"
+TOKEN = "8354126069:AAG29DcYkn0SCWWPMAJo91zXkClh-_rIAQU"
 CHAT_ID = -1002190311306  # ID твоєї групи
 
 CHANNEL_ID = -1002375622983  # ID офіційного каналу
