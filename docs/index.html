@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Карта підробітків Київ</title>
+<title>Карта підробітків Києва та області</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
@@ -57,6 +57,11 @@ button {
   background: #1684e8;
   color: white;
   font-size: 14px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
 }
 
 #status {
@@ -65,13 +70,40 @@ button {
   margin-top: 7px;
 }
 
+#results {
+  display: none;
+  margin-top: 7px;
+  max-height: 190px;
+  overflow-y: auto;
+  border: 1px solid #dbe3ec;
+  border-radius: 8px;
+  background: white;
+}
+
+.search-result {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: white;
+  color: #263746;
+  border-radius: 0;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+  padding: 10px;
+}
+
+.search-result:hover {
+  background: #eff6ff;
+}
+
 #map {
   flex: 1;
   min-height: 300px;
+  width: 100%;
 }
 
 .city-label {
-  background: rgba(255,255,255,0.9);
+  background: rgba(255,255,255,0.94);
   border: 1px solid #64748b;
   border-radius: 4px;
   color: #263746;
@@ -82,12 +114,29 @@ button {
   box-shadow: 0 1px 4px #0002;
 }
 
-.metro-dot {
-  border: 2px solid white;
+.metro-icon {
+  width: 29px;
+  height: 29px;
+  border: 3px solid var(--line-color);
   border-radius: 50%;
-  width: 13px;
-  height: 13px;
-  box-shadow: 0 1px 4px #0007;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  box-shadow: 0 1px 5px #0006;
+}
+
+.metro-label {
+  color: #172033;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid var(--line-color);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 10px;
+  font-weight: bold;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px #0003;
 }
 
 .legend {
@@ -111,6 +160,12 @@ button {
   height: 10px;
   border-radius: 50%;
 }
+
+@media (max-width: 480px) {
+  h2 { font-size: 17px; }
+  .header { padding: 9px; }
+  .legend { gap: 8px; font-size: 11px; }
+}
 </style>
 </head>
 
@@ -121,8 +176,10 @@ button {
 
   <div class="search">
     <input id="address" placeholder="Місто, вулиця або адреса">
-    <button onclick="searchAddress()">Знайти</button>
+    <button id="searchButton" onclick="searchAddress()">Знайти</button>
   </div>
+
+  <div id="results"></div>
 
   <div id="status">
     Натисніть на карту, щоб вибрати місце.
@@ -144,6 +201,7 @@ button {
     <span class="dot" style="background:#20a36b"></span>
     Зелена лінія
   </div>
+  <div class="legend-item">🚇 Метро</div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -160,20 +218,21 @@ try {
   savedView = JSON.parse(localStorage.getItem(STORAGE_KEY));
 } catch(e) {}
 
-const initialCenter = savedView &&
+const initialCenter =
+  savedView &&
   Array.isArray(savedView.center) &&
   savedView.center.length === 2
-  ? savedView.center
-  : [50.4501, 30.5234];
+    ? savedView.center
+    : [50.4501, 30.5234];
 
-const initialZoom = savedView &&
-  Number.isFinite(savedView.zoom)
-  ? savedView.zoom
-  : 9;
+const initialZoom =
+  savedView && Number.isFinite(savedView.zoom)
+    ? savedView.zoom
+    : 9;
 
 const map = L.map('map').setView(initialCenter, initialZoom);
 
-// Основна карта OpenStreetMap
+// Основна карта
 L.tileLayer(
   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
@@ -182,28 +241,7 @@ L.tileLayer(
   }
 ).addTo(map);
 
-// Резервна карта, якщо світла не завантажиться
-const backupMap = L.tileLayer(
-  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap'
-  }
-);
-
-lightMap.addTo(map);
-
-let backupActivated = false;
-
-lightMap.on('tileerror', function() {
-  if (!backupActivated) {
-    backupActivated = true;
-    map.removeLayer(lightMap);
-    backupMap.addTo(map);
-  }
-});
-
-// Запам'ятовування останнього місця перегляду
+// Запам'ятовування масштабу та місця перегляду
 map.on('moveend', function() {
   try {
     const center = map.getCenter();
@@ -218,6 +256,18 @@ map.on('moveend', function() {
 let marker = null;
 
 // ================= ВИБІР МІСЦЯ =================
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, function(c) {
+    return {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[c];
+  });
+}
 
 function setMarker(lat, lon, label) {
   if (marker) map.removeLayer(marker);
@@ -235,18 +285,6 @@ function setMarker(lat, lon, label) {
     lat.toFixed(5) + ', ' + lon.toFixed(5);
 }
 
-function escapeHTML(value) {
-  return String(value).replace(/[&<>"']/g, function(c) {
-    return {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
-    }[c];
-  });
-}
-
 map.on('click', function(e) {
   setMarker(e.latlng.lat, e.latlng.lng, 'Вибране місце');
 });
@@ -254,50 +292,106 @@ map.on('click', function(e) {
 // ================= ПОШУК АДРЕСИ =================
 
 async function searchAddress() {
-  const q = document.getElementById('address').value.trim();
+  const input = document.getElementById('address');
   const status = document.getElementById('status');
+  const resultsBox = document.getElementById('results');
+  const button = document.getElementById('searchButton');
+
+  const q = input.value.trim();
 
   if (!q) {
-    status.textContent = 'Введіть адресу.';
+    status.textContent = 'Введіть місто, вулицю або адресу.';
     return;
   }
 
+  resultsBox.style.display = 'none';
+  resultsBox.innerHTML = '';
   status.textContent = 'Шукаємо адресу...';
+  button.disabled = true;
 
   try {
-    const url =
-      'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?SingleLine=' +
-      encodeURIComponent(q + ', Україна') +
-      '&maxLocations=1&f=pjson';
+    const params = new URLSearchParams({
+      q: q + ', Україна',
+      format: 'jsonv2',
+      addressdetails: '1',
+      limit: '7',
+      countrycodes: 'ua',
+      'accept-language': 'uk',
+      viewbox: '29.35,51.05,31.15,50.05',
+      bounded: '0'
+    });
 
-    const response = await fetch(url);
+    const url =
+      'https://nominatim.openstreetmap.org/search?' +
+      params.toString();
+
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Помилка сервера пошуку');
+    }
+
     const data = await response.json();
 
-    if (!data.candidates || !data.candidates.length) {
-      status.textContent = 'Адресу не знайдено.';
+    if (!data.length) {
+      status.textContent =
+        'Нічого не знайдено. Спробуйте ввести назву інакше.';
       return;
     }
 
-    const result = data.candidates[0];
+    resultsBox.innerHTML = '';
 
-    setMarker(
-      result.location.y,
-      result.location.x,
-      result.address
-    );
+    data.forEach(function(item) {
+      const resultButton = document.createElement('button');
 
-    status.textContent = 'Знайдено: ' + result.address;
+      resultButton.className = 'search-result';
+      resultButton.textContent = item.display_name;
+
+      resultButton.onclick = function() {
+        const lat = Number(item.lat);
+        const lon = Number(item.lon);
+
+        setMarker(lat, lon, item.display_name);
+
+        resultsBox.style.display = 'none';
+        resultsBox.innerHTML = '';
+
+        status.textContent = 'Знайдено: ' + item.display_name;
+      };
+
+      resultsBox.appendChild(resultButton);
+    });
+
+    resultsBox.style.display = 'block';
+
+    status.textContent =
+      'Знайдено варіантів: ' + data.length +
+      '. Виберіть потрібну адресу.';
+
+    if (data.length === 1) {
+      const item = data[0];
+      setMarker(Number(item.lat), Number(item.lon), item.display_name);
+      resultsBox.style.display = 'none';
+    }
 
   } catch(e) {
-    status.textContent = 'Помилка пошуку. Спробуйте ще раз.';
+    console.log('Search error:', e);
+    status.textContent =
+      'Помилка пошуку. Перевірте інтернет і спробуйте ще раз.';
+  } finally {
+    button.disabled = false;
   }
 }
 
-document.getElementById('address').addEventListener('keydown', e => {
+document.getElementById('address').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') searchAddress();
 });
 
-// ================= ДАНІ OPENSTREETMAP =================
+// ================= OPENSTREETMAP =================
 
 async function overpassRequest(query) {
   const endpoints = [
@@ -309,6 +403,9 @@ async function overpassRequest(query) {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
         body: 'data=' + encodeURIComponent(query)
       });
 
@@ -326,11 +423,14 @@ async function overpassRequest(query) {
 
 // ================= НАЗВИ МІСТ І РАЙОНІВ =================
 
+const placesLayer = L.layerGroup().addTo(map);
+
 async function loadPlaces() {
   const query = `
     [out:json][timeout:35];
     (
-      node["place"~"city|town|village|suburb"](50.05,29.35,51.05,31.15);
+      node["place"~"city|town|village|suburb|neighbourhood"]
+      (50.05,29.35,51.05,31.15);
     );
     out body;
   `;
@@ -338,10 +438,10 @@ async function loadPlaces() {
   try {
     const data = await overpassRequest(query);
 
-    data.elements.forEach(place => {
+    data.elements.forEach(function(place) {
       if (!place.lat || !place.lon || !place.tags.name) return;
 
-      const name = place.tags.name;
+      const name = place.tags['name:uk'] || place.tags.name;
 
       const label = L.marker(
         [place.lat, place.lon],
@@ -357,8 +457,10 @@ async function loadPlaces() {
         }
       );
 
-      label.addTo(map);
+      placesLayer.addLayer(label);
     });
+
+    console.log('Place labels loaded:', data.elements.length);
 
   } catch(e) {
     console.log('Place labels unavailable:', e);
@@ -373,7 +475,7 @@ const metroLines = {
     color: '#e53935',
     stations: [
       'академмістечко', 'житомирська', 'святошин',
-      'ніва', 'берестейська', 'шулявська',
+      'нивки', 'берестейська', 'шулявська',
       'політехнічний інститут', 'вокзальна',
       'університет', 'театральна', 'хрещатик',
       'арсенальна', 'дніпро', 'гідропарк',
@@ -387,12 +489,13 @@ const metroLines = {
     color: '#1684e8',
     stations: [
       'героїв дніпра', 'мінська', 'оболонь',
-      'почайна', 'тараш шевченка', 'контрактова площа',
-      'поштова площа', 'майдан незалежності',
-      'площа українських героїв', 'олімпійська',
-      'палац україна', 'либедська', 'деміївська',
-      'голосіївська', 'васильківська',
-      'виставковий центр', 'іподром', 'теремки'
+      'почайна', 'тарасa шевченка', 'тарас шевченка',
+      'контрактова площа', 'поштова площа',
+      'майдан незалежності', 'площа українських героїв',
+      'олімпійська', 'палац україна', 'либі́дська',
+      'либідська', 'деміївська', 'голосіївська',
+      'васильківська', 'виставковий центр',
+      'іподром', 'теремки'
     ]
   },
 
@@ -400,7 +503,7 @@ const metroLines = {
     name: 'Зелена — Сирецько-Печерська',
     color: '#20a36b',
     stations: [
-      'сирець', 'доро́гожичі', 'лукʼянівська',
+      'сирець', 'дорогожичі', 'лукянівська',
       'золоті ворота', 'палац спорту',
       'кловська', 'печерська', 'зверинецька',
       'видубичі', 'славутич', 'осокорки',
@@ -410,73 +513,144 @@ const metroLines = {
   }
 };
 
+function normalizeName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[’ʼ`']/g, '')
+    .replace(/[ії]/g, function(c) {
+      return c === 'і' ? 'и' : 'и';
+    })
+    .replace(/ґ/g, 'г')
+    .replace(/[^а-яa-z0-9 ]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function getMetroLine(stationName) {
-  const name = stationName.toLowerCase();
+  const name = normalizeName(stationName);
 
   for (const key of Object.keys(metroLines)) {
-    if (metroLines[key].stations.some(station =>
-      name.includes(station) || station.includes(name)
-    )) {
-      return metroLines[key];
-    }
+    const found = metroLines[key].stations.some(function(station) {
+      const normalized = normalizeName(station);
+      return name === normalized ||
+        name.includes(normalized) ||
+        normalized.includes(name);
+    });
+
+    if (found) return metroLines[key];
   }
 
   return null;
 }
 
+const metroLayer = L.layerGroup().addTo(map);
+
 async function loadMetro() {
   const query = `
-    [out:json][timeout:35];
+    [out:json][timeout:45];
     (
-      node["railway"="station"]["station"="subway"](50.25,30.15,50.65,30.85);
-      node["subway"="yes"](50.25,30.15,50.65,30.85);
+      nwr["railway"="station"]["station"="subway"]
+      (50.25,30.15,50.65,30.85);
+
+      nwr["railway"="station"]["subway"="yes"]
+      (50.25,30.15,50.65,30.85);
+
+      nwr["station"="subway"]
+      (50.25,30.15,50.65,30.85);
+
+      nwr["public_transport"="station"]["subway"="yes"]
+      (50.25,30.15,50.65,30.85);
     );
-    out body;
+    out center tags;
   `;
 
   try {
     const data = await overpassRequest(query);
 
+    const added = new Set();
     let count = 0;
 
-    data.elements.forEach(station => {
-      if (!station.lat || !station.lon) return;
+    data.elements.forEach(function(station) {
+      const lat = station.lat || (station.center && station.center.lat);
+      const lon = station.lon || (station.center && station.center.lon);
 
-      const name = station.tags.name ||
-                   station.tags['name:uk'] ||
-                   'Станція метро';
+      if (!lat || !lon) return;
+
+      const tags = station.tags || {};
+
+      const name =
+        tags['name:uk'] ||
+        tags.name ||
+        tags['name'] ||
+        'Станція метро';
 
       const line = getMetroLine(name);
 
-      if (!line) return;
+      if (!line) {
+        console.log('Невідома станція метро:', name);
+        return;
+      }
 
-      const dot = L.circleMarker(
-        [station.lat, station.lon],
-        {
-          radius: 7,
-          color: '#ffffff',
-          weight: 2,
-          fillColor: line.color,
-          fillOpacity: 1
-        }
-      ).addTo(map);
+      const uniqueKey = normalizeName(name);
 
-      dot.bindPopup(
+      if (added.has(uniqueKey)) return;
+      added.add(uniqueKey);
+
+      const icon = L.divIcon({
+        className: '',
+        html:
+          '<div class="metro-icon" style="--line-color:' +
+          line.color +
+          '">🚇</div>',
+        iconSize: [29, 29],
+        iconAnchor: [14, 14]
+      });
+
+      const metroMarker = L.marker([lat, lon], {
+        icon: icon,
+        zIndexOffset: 1000
+      });
+
+      metroMarker.bindPopup(
         '<b>🚇 ' + escapeHTML(name) + '</b><br>' +
-        escapeHTML(line.name) + ' лінія'
+        '<span style="color:' + line.color + ';font-weight:bold">' +
+        escapeHTML(line.name) + '</span>'
       );
+
+      metroLayer.addLayer(metroMarker);
+
+      const label = L.marker([lat, lon], {
+        interactive: false,
+        icon: L.divIcon({
+          className: '',
+          html:
+            '<div class="metro-label" style="--line-color:' +
+            line.color + '">' +
+            escapeHTML(name) +
+            '</div>',
+          iconSize: null,
+          iconAnchor: [-13, 5]
+        })
+      });
+
+      metroLayer.addLayer(label);
 
       count++;
     });
 
     console.log('Metro stations loaded:', count);
 
+    if (count === 0) {
+      document.getElementById('status').textContent =
+        'Карта завантажена. Дані метро поки недоступні.';
+    }
+
   } catch(e) {
     console.log('Metro unavailable:', e);
   }
 }
 
-// ================= ЗАПУСК ДАНИХ =================
+// ================= ЗАПУСК =================
 
 document.getElementById('status').textContent =
   'Карта завантажена. Завантажуємо назви міст і метро...';
