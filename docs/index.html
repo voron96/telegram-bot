@@ -107,10 +107,18 @@ const map = L.map('map').setView([50.4501, 30.5234], 9);
 
 // Світла карта замість коричневого оформлення
 L.tileLayer(
-  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
   {
-    maxZoom: 20,
-    attribution: '&copy; OpenStreetMap &copy; CARTO'
+    maxZoom: 16,
+    attribution: 'Tiles © Esri'
+  }
+).addTo(map);
+
+L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+  {
+    maxZoom: 16,
+    attribution: 'Labels © Esri'
   }
 ).addTo(map);
 
@@ -182,12 +190,11 @@ async function loadMetro() {
   const status = document.getElementById('status');
 
   const query = `
-    [out:json][timeout:30];
-    (
-      relation["route"="subway"](50.25,30.15,50.65,30.85);
-      node["railway"="station"]["station"="subway"](50.25,30.15,50.65,30.85);
-    );
-    out geom;
+    [out:json][timeout:40];
+    relation["route"="subway"](50.25,30.15,50.65,30.85);
+    out body;
+    node(r);
+    out body;
   `;
 
   const endpoints = [
@@ -209,73 +216,72 @@ async function loadMetro() {
       data = await response.json();
       break;
     } catch (error) {
-      console.log('Metro endpoint error:', error);
+      console.log(error);
     }
   }
 
   if (!data) {
-    status.textContent =
-      'Карта доступна. Дані метро тимчасово не завантажилися.';
+    status.textContent = 'Карта завантажена. Метро тимчасово недоступне.';
     return;
   }
 
-  const colors = [
-    '#e53935',
-    '#1684e8',
-    '#20a36b'
-  ];
+  const colors = {
+    red: '#e53935',
+    blue: '#1684e8',
+    green: '#20a36b'
+  };
 
-  let lineNumber = 0;
+  const stationColors = {};
 
   data.elements.forEach(element => {
-    if (element.type === 'relation' &&
-        element.tags &&
-        element.tags.route === 'subway') {
+    if (element.type !== 'relation') return;
 
-      const color = colors[lineNumber % colors.length];
-      lineNumber++;
+    const name = (
+      (element.tags && element.tags.name) || ''
+    ).toLowerCase();
 
-      (element.members || []).forEach(member => {
-        if (member.type === 'way' && member.geometry) {
-          const coords = member.geometry.map(point => [
-            point.lat, point.lon
-          ]);
+    let color = null;
 
-          L.polyline(coords, {
-            color: color,
-            weight: 5,
-            opacity: 0.9
-          }).addTo(map);
-        }
-      });
+    if (name.includes('святошин') || name.includes('brovarska')) {
+      color = colors.red;
+    } else if (name.includes('оболон') || name.includes('teremkiv')) {
+      color = colors.blue;
+    } else if (name.includes('сирець') || name.includes('pecherska')) {
+      color = colors.green;
     }
 
-    if (element.type === 'node' &&
-        element.lat && element.lon) {
+    if (!color) return;
 
-      const station = L.circleMarker(
-        [element.lat, element.lon],
-        {
-          radius: 5,
-          color: '#ffffff',
-          weight: 2,
-          fillColor: '#1684e8',
-          fillOpacity: 1
-        }
-      ).addTo(map);
-
-      station.bindPopup(
-        '🚇 ' + (element.tags.name || 'Станція метро')
-      );
-    }
+    (element.members || []).forEach(member => {
+      if (member.type === 'node') {
+        stationColors[member.ref] = color;
+      }
+    });
   });
 
-  status.textContent =
-    'Карта готова. Можна шукати адреси та ставити мітки.';
+  let count = 0;
+
+  data.elements.forEach(element => {
+    if (element.type !== 'node' ||
+        !element.lat || !element.lon ||
+        !stationColors[element.id]) return;
+
+    L.circleMarker([element.lat, element.lon], {
+      radius: 6,
+      color: '#ffffff',
+      weight: 2,
+      fillColor: stationColors[element.id],
+      fillOpacity: 1
+    })
+    .addTo(map)
+    .bindPopup('🚇 Станція метро');
+
+    count++;
+  });
+
+  status.textContent = count
+    ? 'Карта готова. Станцій метро: ' + count
+    : 'Карта готова. Дані станцій метро не знайдені.';
 }
 
 loadMetro();
-</script>
-
-</body>
-</html>
