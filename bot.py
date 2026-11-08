@@ -334,7 +334,7 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
 
-    app.add_handler(MessageHandler(filters.ALL, main_moderation)))
+    app.add_handler(MessageHandler(filters.ALL, main_moderation))
 
     print("BOT STARTED ✅")
 
