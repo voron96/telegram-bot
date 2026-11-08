@@ -62,7 +62,39 @@ async def mute_user(context, user_id, hours):
         )
     except:
         pass
+        
+# ================= ЗАХИСТ ВІД СТОРОННІХ БОТІВ =================
+async def ban_non_admin_bots(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.effective_message
 
+    if not msg or not msg.new_chat_members:
+        return
+
+    for new_user in msg.new_chat_members:
+        if not new_user.is_bot:
+            continue
+
+        try:
+            member = await context.bot.get_chat_member(
+                CHAT_ID,
+                new_user.id
+            )
+
+            # Ботів-адміністраторів не чіпаємо
+            if member.status in ("administrator", "creator"):
+                continue
+
+            # Видаляємо бота без прав адміністратора
+            await context.bot.ban_chat_member(
+                chat_id=CHAT_ID,
+                user_id=new_user.id
+            )
+
+            print(f"BOT REMOVED: {new_user.username or new_user.id}")
+
+        except Exception as e:
+            print("BOT PROTECTION ERROR:", e)
+            
 # ================= МОДЕРАЦІЯ =================
 LINK_RE = re.compile(
     r"(https?://|www\.|t\.me/|telegram\.me/|telegram\.dog/)",
@@ -276,6 +308,7 @@ def main():
         .build()
     )
 
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, ban_non_admin_bots), group=-1)
     app.add_handler(MessageHandler(filters.ALL, main_moderation))
 
     print("BOT STARTED ✅")
