@@ -21,11 +21,12 @@ html, body {
 body {
   display: flex;
   flex-direction: column;
-  background: #fff;
   overflow: hidden;
+  background: #fff;
 }
 
 .header {
+  flex: 0 0 auto;
   padding: 12px;
   background: #fff;
   box-shadow: 0 2px 8px #0002;
@@ -50,12 +51,17 @@ input {
   border: 1px solid #cbd5e1;
   border-radius: 9px;
   font-size: 16px;
+  outline: none;
+}
+
+input:focus {
+  border-color: #1684e8;
 }
 
 button {
+  padding: 11px 13px;
   border: 0;
   border-radius: 9px;
-  padding: 11px 13px;
   background: #1684e8;
   color: white;
   font-size: 14px;
@@ -89,55 +95,36 @@ button:disabled {
   line-height: 1.4;
 }
 
+.result:hover {
+  background: #f1f5f9;
+}
+
 #status {
-  margin-top: 8px;
-  color: #64748b;
-  font-size: 12px;
+  margin-top: 7px;
   min-height: 15px;
+  font-size: 12px;
+  color: #64748b;
 }
 
 #map {
-  flex: 1;
-  min-height: 200px;
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
   background: #edf1f3;
 }
 
 .footer {
+  flex: 0 0 auto;
   padding: 10px;
   padding-bottom: max(10px, env(safe-area-inset-bottom));
   background: white;
   box-shadow: 0 -2px 8px #0002;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   z-index: 1000;
 }
 
-.buttons {
-  display: flex;
-  gap: 7px;
-}
-
-.buttons button {
-  flex: 1;
-  min-width: 0;
-}
-
-.gps {
-  background: #1684e8;
-}
-
-.save {
-  background: #15965c;
-}
-
-.cancel {
-  background: #64748b;
-}
-
-.mode {
+.mode-label {
   display: none;
+  margin-bottom: 8px;
   padding: 9px;
   border-radius: 8px;
   background: #eff6ff;
@@ -146,15 +133,32 @@ button:disabled {
   text-align: center;
 }
 
+.button-row {
+  display: flex;
+  gap: 7px;
+}
+
+.button-row button {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 6px;
+  font-size: 12px;
+}
+
+.gps-button { background: #1684e8; }
+.home-button { background: #475569; }
+.save-button { background: #15965c; }
+.cancel-button { background: #64748b; }
+
 .leaflet-popup-content {
-  font-size: 14px;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 420px) {
+@media (max-width: 380px) {
   h2 { font-size: 16px; }
-  .buttons button { padding: 11px 7px; font-size: 12px; }
+  .button-row { flex-wrap: wrap; }
+  .button-row button { flex: 1 1 30%; }
 }
 </style>
 </head>
@@ -171,36 +175,62 @@ button:disabled {
       placeholder="Місто, вулиця або адреса"
       autocomplete="off"
     >
-    <button id="searchButton">Знайти</button>
+    <button id="searchButton" type="button">Знайти</button>
   </div>
 
   <div id="results"></div>
-  <div id="status">Знайдіть адресу або визначте своє місцезнаходження.</div>
+  <div id="status">Знайдіть адресу або встановіть свою позначку.</div>
 </div>
 
 <div id="map"></div>
 
 <div class="footer">
-  <div id="mode" class="mode"></div>
+  <div id="modeLabel" class="mode-label"></div>
 
-  <div class="buttons">
-    <button class="gps" id="gpsButton">📍 Моє місцезнаходження</button>
-    <button class="save" id="saveButton">Зберегти місце</button>
-    <button class="cancel" id="cancelButton">Скасувати</button>
+  <div class="button-row">
+    <button id="gpsButton" class="gps-button" type="button">
+      📍 Моє місцезнаходження
+    </button>
+
+    <button id="homeButton" class="home-button" type="button">
+      🏠 Змінити домашню позначку
+    </button>
+  </div>
+
+  <div class="button-row" style="margin-top:7px">
+    <button id="saveButton" class="save-button" type="button">
+      Зберегти місце
+    </button>
+
+    <button id="cancelButton" class="cancel-button" type="button">
+      Скасувати
+    </button>
   </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <script>
+'use strict';
+
 // ==================================================
-// НАЛАШТУВАННЯ
+// 1. НАЛАШТУВАННЯ
 // ==================================================
 
 const KYIV_CENTER = [50.4501, 30.5234];
-const VIEW_KEY = 'parttime_map_view_v2';
 
-// Telegram Web App
+const VIEW_KEY = 'parttime_map_view_v3';
+const HOME_KEY = 'parttime_home_v3';
+
+// Межі Києва та Київської області
+const REGION_BOUNDS = {
+  minLat: 49.15,
+  maxLat: 51.85,
+  minLon: 29.15,
+  maxLon: 32.25
+};
+
 const tg = window.Telegram?.WebApp || null;
 
 if (tg) {
@@ -209,67 +239,81 @@ if (tg) {
 }
 
 // ==================================================
-// СТАН КАРТИ
+// 2. ЕЛЕМЕНТИ СТОРІНКИ
 // ==================================================
 
-let map;
-let temporaryMarker = null;
-let homeMarker = null;
-let vacancies = [];
-let selectedPlace = null;
-
-let currentMode = 'view';
-// view = перегляд
-// home = домашня позначка
-// vacancy = позначка вакансії
-
-let homeLocation = null;
-
-// ==================================================
-// ЕЛЕМЕНТИ
-// ==================================================
-
-const statusBox = document.getElementById('status');
-const resultsBox = document.getElementById('results');
 const addressInput = document.getElementById('address');
-const modeBox = document.getElementById('mode');
-
 const searchButton = document.getElementById('searchButton');
+const resultsBox = document.getElementById('results');
+const statusBox = document.getElementById('status');
+
 const gpsButton = document.getElementById('gpsButton');
+const homeButton = document.getElementById('homeButton');
 const saveButton = document.getElementById('saveButton');
 const cancelButton = document.getElementById('cancelButton');
 
+const modeLabel = document.getElementById('modeLabel');
+
 // ==================================================
-// ДОПОМІЖНІ ФУНКЦІЇ
+// 3. СТАН
 // ==================================================
 
-function setStatus(text) {
-  statusBox.textContent = text;
+let mode = 'view';
+let selectedPlace = null;
+let temporaryMarker = null;
+let homeMarker = null;
+let homeLocation = null;
+
+// ==================================================
+// 4. ДОПОМІЖНІ ФУНКЦІЇ
+// ==================================================
+
+function setStatus(message) {
+  statusBox.textContent = message;
 }
 
 function escapeHTML(value) {
-  return String(value).replace(/[&<>"']/g, function(c) {
-    return {
+  return String(value).replace(/[&<>"']/g, function(char) {
+    const entities = {
       '&': '&amp;',
       '<': '&lt;',
       '>': '&gt;',
       '"': '&quot;',
       "'": '&#39;'
-    }[c];
+    };
+
+    return entities[char];
   });
 }
 
-function setMode(mode) {
-  currentMode = mode;
+function isInsideRegion(lat, lon) {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    lat >= REGION_BOUNDS.minLat &&
+    lat <= REGION_BOUNDS.maxLat &&
+    lon >= REGION_BOUNDS.minLon &&
+    lon <= REGION_BOUNDS.maxLon
+  );
+}
+
+function setMode(newMode) {
+  mode = newMode;
 
   if (mode === 'home') {
-    modeBox.textContent = '🏠 Режим встановлення домашньої позначки';
-    modeBox.style.display = 'block';
+    modeLabel.textContent =
+      '🏠 Виберіть місце для домашньої позначки';
+
+    modeLabel.style.display = 'block';
+
   } else if (mode === 'vacancy') {
-    modeBox.textContent = '📍 Режим додавання вакансії';
-    modeBox.style.display = 'block';
+    modeLabel.textContent =
+      '📍 Виберіть місце роботи для вакансії';
+
+    modeLabel.style.display = 'block';
+
   } else {
-    modeBox.style.display = 'none';
+    modeLabel.style.display = 'none';
   }
 }
 
@@ -283,70 +327,71 @@ function clearTemporaryMarker() {
 }
 
 // ==================================================
-// СТВОРЕННЯ КАРТИ
+// 5. СТВОРЕННЯ КАРТИ
 // ==================================================
 
 let savedView = null;
 
 try {
   savedView = JSON.parse(localStorage.getItem(VIEW_KEY));
-} catch(e) {}
+} catch (error) {
+  savedView = null;
+}
 
-const startCenter =
+let startCenter = KYIV_CENTER;
+let startZoom = 9;
+
+if (
   savedView &&
   Array.isArray(savedView.center) &&
-  savedView.center.length === 2
-    ? savedView.center
-    : KYIV_CENTER;
+  savedView.center.length === 2 &&
+  Number.isFinite(savedView.center[0]) &&
+  Number.isFinite(savedView.center[1]) &&
+  Number.isFinite(savedView.zoom)
+) {
+  startCenter = savedView.center;
+  startZoom = savedView.zoom;
+}
 
-const startZoom =
-  savedView && Number.isFinite(savedView.zoom)
-    ? savedView.zoom
-    : 9;
-
-map = L.map('map', {
+const map = L.map('map', {
   zoomControl: true,
   preferCanvas: true
 }).setView(startCenter, startZoom);
 
-// Світла карта без зайвих підписів
+// Один світлий шар із підписами.
+// Не накладаємо два шари з дубльованими написами.
 L.tileLayer(
-  'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
+  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
   {
     maxZoom: 19,
-    attribution: '&copy; OpenStreetMap &copy; CARTO'
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
   }
 ).addTo(map);
 
-// Підписи доріг, міст та районів окремим шаром
-L.tileLayer(
-  'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
-  {
-    maxZoom: 19,
-    pane: 'overlayPane',
-    attribution: ''
-  }
-).addTo(map);
-
-// Збереження масштабу та положення на цьому пристрої
+// Збереження положення карти на цьому пристрої
 map.on('moveend', function() {
   try {
-    const c = map.getCenter();
+    const center = map.getCenter();
 
     localStorage.setItem(VIEW_KEY, JSON.stringify({
-      center: [c.lat, c.lng],
+      center: [center.lat, center.lng],
       zoom: map.getZoom()
     }));
-  } catch(e) {}
+  } catch (error) {
+    console.warn('Не вдалося зберегти вигляд карти:', error);
+  }
 });
 
 // ==================================================
-// ВИБІР МІСЦЯ
+// 6. ВІДОБРАЖЕННЯ ВИБРАНОГО МІСЦЯ
 // ==================================================
 
 function choosePlace(lat, lon, label) {
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    setStatus('Не вдалося визначити координати.');
+  lat = Number(lat);
+  lon = Number(lon);
+
+  if (!isInsideRegion(lat, lon)) {
+    setStatus('Це місце за межами Києва та Київської області.');
     return;
   }
 
@@ -363,39 +408,92 @@ function choosePlace(lat, lon, label) {
   temporaryMarker = L.marker([lat, lon]).addTo(map);
 
   temporaryMarker.bindPopup(
-    '<b>' + escapeHTML(selectedPlace.label) + '</b><br>' +
-    'Підтвердіть вибір кнопкою «Зберегти місце».'
+    '<b>' + escapeHTML(selectedPlace.label) + '</b>'
   ).openPopup();
 
   map.setView([lat, lon], 16);
 
-  setStatus('Вибране місце: ' + selectedPlace.label);
+  setStatus(
+    'Обране місце: ' + selectedPlace.label +
+    '. Натисніть «Зберегти місце».'
+  );
 }
 
-// Звичайне натискання на карту лише вибирає
-// місце, але не змінює збережену домашню позначку
-map.on('click', function(e) {
-  if (currentMode === 'view') {
-    setStatus('Щоб змінити домашню позначку, спочатку увімкніть режим її зміни.');
+// Натискання на карту дозволене лише в режимі редагування
+map.on('click', function(event) {
+  if (mode !== 'home' && mode !== 'vacancy') {
+    setStatus('Щоб вибрати місце, спочатку увімкніть потрібний режим.');
     return;
   }
 
   choosePlace(
-    e.latlng.lat,
-    e.latlng.lng,
+    event.latlng.lat,
+    event.latlng.lng,
     'Вибране місце'
   );
 });
 
 // ==================================================
-// ПОШУК АДРЕСИ
+// 7. ЗАВАНТАЖЕННЯ ДОМАШНЬОЇ ПОЗНАЧКИ
+// ==================================================
+
+function loadHomeMarker() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(HOME_KEY));
+
+    if (
+      !saved ||
+      !isInsideRegion(Number(saved.lat), Number(saved.lon))
+    ) {
+      return;
+    }
+
+    homeLocation = {
+      lat: Number(saved.lat),
+      lon: Number(saved.lon),
+      label: saved.label || 'Моя домашня позначка'
+    };
+
+    homeMarker = L.marker([
+      homeLocation.lat,
+      homeLocation.lon
+    ]).addTo(map);
+
+    homeMarker.bindPopup(
+      '<b>🏠 Моя домашня позначка</b><br>' +
+      escapeHTML(homeLocation.label)
+    );
+
+  } catch (error) {
+    console.warn('Помилка завантаження домашньої позначки:', error);
+  }
+}
+
+loadHomeMarker();
+
+// ==================================================
+// 8. РЕЖИМ ЗМІНИ ДОМАШНЬОЇ ПОЗНАЧКИ
+// ==================================================
+
+homeButton.addEventListener('click', function() {
+  clearTemporaryMarker();
+  setMode('home');
+
+  setStatus(
+    'Натисніть на карту або знайдіть адресу. ' +
+    'Стара позначка залишиться до підтвердження нової.'
+  );
+});
+
+// ==================================================
+// 9. ПОШУК АДРЕСИ
 // ==================================================
 
 async function searchAddress() {
-  const q = addressInput.value.trim();
+  const query = addressInput.value.trim();
 
-  if (!q) {
-    setStatus('Введіть адресу.');
+  if (!query) {
+    setStatus('Введіть місто, вулицю або адресу.');
     return;
   }
 
@@ -406,79 +504,39 @@ async function searchAddress() {
   setStatus('Шукаємо адресу...');
 
   try {
-    let found = [];
+    const params = new URLSearchParams({
+      q: query + ', Київська область, Україна',
+      format: 'jsonv2',
+      addressdetails: '1',
+      limit: '10',
+      countrycodes: 'ua',
+      'accept-language': 'uk',
+      viewbox: '29.15,51.85,32.25,49.15',
+      bounded: '1'
+    });
 
-    // Photon
-    try {
-      const params = new URLSearchParams({
-        q: q + ', Україна',
-        lang: 'uk',
-        limit: '8',
-        lat: '50.4501',
-        lon: '30.5234'
-      });
+    const response = await fetch(
+      'https://nominatim.openstreetmap.org/search?' +
+      params.toString()
+    );
 
-      const response = await fetch(
-        'https://photon.komoot.io/api/?' + params
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-
-        found = (data.features || []).map(function(item) {
-          const p = item.properties || {};
-          const coords = item.geometry.coordinates;
-
-          const label = [
-            p.name,
-            p.housenumber,
-            p.street,
-            p.city || p.town || p.village || p.county,
-            p.state
-          ].filter(Boolean).join(', ');
-
-          return {
-            lat: Number(coords[1]),
-            lon: Number(coords[0]),
-            label: label || q
-          };
-        });
-      }
-    } catch(e) {
-      console.log('Photon error:', e);
+    if (!response.ok) {
+      throw new Error('Сервіс пошуку повернув помилку.');
     }
 
-    // Резервний пошук Nominatim
-    if (!found.length) {
-      const params = new URLSearchParams({
-        q: q + ', Україна',
-        format: 'jsonv2',
-        addressdetails: '1',
-        limit: '8',
-        countrycodes: 'ua',
-        'accept-language': 'uk',
-        viewbox: '29.35,51.05,31.15,50.05',
-        bounded: '0'
-      });
+    const data = await response.json();
 
-      const response = await fetch(
-        'https://nominatim.openstreetmap.org/search?' + params
-      );
-
-      if (!response.ok) {
-        throw new Error('Пошук тимчасово недоступний');
-      }
-
-      const data = await response.json();
-
-      found = data.map(function(item) {
+    const found = data
+      .map(function(item) {
         return {
           lat: Number(item.lat),
           lon: Number(item.lon),
           label: item.display_name
         };
+      })
+      .filter(function(item) {
+        return isInsideRegion(item.lat, item.lon);
       });
-    }
 
     if (!found.length) {
       setStatus('Адресу не знайдено. Спробуйте інше написання.');
@@ -488,29 +546,53 @@ async function searchAddress() {
     resultsBox.innerHTML = '';
 
     found.forEach(function(item) {
-      const btn = document.createElement('button');
+      const button = document.createElement('button');
 
-      btn.className = 'result';
-      btn.textContent = item.label;
+      button.type = 'button';
+      button.className = 'result';
+      button.textContent = item.label;
 
-      btn.addEventListener('click', function() {
+      button.addEventListener('click', function() {
+        if (mode === 'view') {
+          setMode('home');
+        }
+
         choosePlace(item.lat, item.lon, item.label);
+
         resultsBox.style.display = 'none';
+        resultsBox.innerHTML = '';
       });
 
-      resultsBox.appendChild(btn);
+      resultsBox.appendChild(button);
     });
 
     if (found.length === 1) {
-      choosePlace(found[0].lat, found[0].lon, found[0].label);
+      if (mode === 'view') {
+        setMode('home');
+      }
+
+      choosePlace(
+        found[0].lat,
+        found[0].lon,
+        found[0].label
+      );
+
     } else {
       resultsBox.style.display = 'block';
-      setStatus('Знайдено варіантів: ' + found.length + '. Виберіть адресу.');
+
+      setStatus(
+        'Знайдено адрес: ' + found.length +
+        '. Виберіть потрібний варіант.'
+      );
     }
 
-  } catch(e) {
-    console.error(e);
-    setStatus('Пошук тимчасово не працює. Спробуйте пізніше.');
+  } catch (error) {
+    console.error('Помилка пошуку:', error);
+
+    setStatus(
+      'Пошук тимчасово недоступний. Спробуйте пізніше.'
+    );
+
   } finally {
     searchButton.disabled = false;
   }
@@ -518,20 +600,24 @@ async function searchAddress() {
 
 searchButton.addEventListener('click', searchAddress);
 
-addressInput.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') {
+addressInput.addEventListener('keydown', function(event) {
+  if (event.key === 'Enter') {
     searchAddress();
   }
 });
 
 // ==================================================
-// GPS
+// 10. GPS
 // ==================================================
 
 gpsButton.addEventListener('click', function() {
   if (!navigator.geolocation) {
-    setStatus('Ваш браузер не підтримує визначення місцезнаходження.');
+    setStatus('Браузер не підтримує визначення місцезнаходження.');
     return;
+  }
+
+  if (mode === 'view') {
+    setMode('home');
   }
 
   setStatus('Визначаємо ваше місцезнаходження...');
@@ -541,21 +627,30 @@ gpsButton.addEventListener('click', function() {
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
 
-      if (lat < 49.5 || lat > 51.5 || lon < 28.5 || lon > 32.0) {
-        setStatus('Ви перебуваєте за межами Києва та Київської області.');
+      if (!isInsideRegion(lat, lon)) {
+        setStatus(
+          'Ваше місцезнаходження за межами Києва та області.'
+        );
         return;
       }
 
       choosePlace(lat, lon, 'Моє місцезнаходження');
-      setStatus('Місце визначено. Натисніть «Зберегти місце».');
     },
+
     function(error) {
+      console.warn('GPS error:', error);
+
       if (error.code === 1) {
-        setStatus('Дозвольте доступ до геолокації або виберіть місце вручну.');
+        setStatus(
+          'Дозвольте доступ до геолокації або виберіть місце вручну.'
+        );
       } else {
-        setStatus('Не вдалося визначити GPS. Виберіть місце вручну.');
+        setStatus(
+          'Не вдалося визначити GPS. Виберіть місце вручну.'
+        );
       }
     },
+
     {
       enableHighAccuracy: true,
       timeout: 15000,
@@ -565,42 +660,7 @@ gpsButton.addEventListener('click', function() {
 });
 
 // ==================================================
-// ОСОБИСТА ПОЗНАЧКА
-// ==================================================
-
-// Увага: це тимчасове локальне збереження.
-// Після підключення сервера воно буде замінене
-// приватним збереженням за Telegram ID.
-
-function loadLocalHome() {
-  try {
-    const data = JSON.parse(localStorage.getItem('parttime_home_v2'));
-
-    if (data && Number.isFinite(data.lat) && Number.isFinite(data.lon)) {
-      homeLocation = data;
-
-      homeMarker = L.marker([data.lat, data.lon]).addTo(map);
-
-      homeMarker.bindPopup(
-        '<b>🏠 Моя домашня позначка</b><br>' +
-        escapeHTML(data.label || '')
-      );
-    }
-  } catch(e) {}
-}
-
-loadLocalHome();
-
-// Увімкнення режиму зміни домашньої позначки
-// Поки що через натискання на статусний напис.
-// Пізніше це буде окрема кнопка в профілі.
-function enableHomeMode() {
-  setMode('home');
-  setStatus('Виберіть нове домашнє місце на карті або через пошук.');
-}
-
-// ==================================================
-// ЗБЕРЕЖЕННЯ ВИБРАНОГО МІСЦЯ
+// 11. ЗБЕРЕЖЕННЯ ДОМАШНЬОЇ ПОЗНАЧКИ
 // ==================================================
 
 saveButton.addEventListener('click', function() {
@@ -609,7 +669,7 @@ saveButton.addEventListener('click', function() {
     return;
   }
 
-  if (currentMode === 'home') {
+  if (mode === 'home') {
     const data = {
       lat: selectedPlace.lat,
       lon: selectedPlace.lon,
@@ -617,9 +677,9 @@ saveButton.addEventListener('click', function() {
     };
 
     try {
-      localStorage.setItem('parttime_home_v2', JSON.stringify(data));
-    } catch(e) {
-      setStatus('Не вдалося зберегти місце.');
+      localStorage.setItem(HOME_KEY, JSON.stringify(data));
+    } catch (error) {
+      setStatus('Не вдалося зберегти позначку на пристрої.');
       return;
     }
 
@@ -628,7 +688,11 @@ saveButton.addEventListener('click', function() {
     }
 
     homeLocation = data;
-    homeMarker = L.marker([data.lat, data.lon]).addTo(map);
+
+    homeMarker = L.marker([
+      data.lat,
+      data.lon
+    ]).addTo(map);
 
     homeMarker.bindPopup(
       '<b>🏠 Моя домашня позначка</b><br>' +
@@ -638,11 +702,19 @@ saveButton.addEventListener('click', function() {
     clearTemporaryMarker();
     setMode('view');
 
-    setStatus('Домашню позначку збережено на цьому пристрої.');
+    setStatus(
+      'Домашню позначку збережено на цьому пристрої.'
+    );
 
-  } else if (currentMode === 'vacancy') {
-    // Відправка координат у Telegram Web App.
-    // Серверне збереження буде підключено окремо.
+    return;
+  }
+
+  if (mode === 'vacancy') {
+    if (!tg) {
+      setStatus('Відкрийте карту через Telegram.');
+      return;
+    }
+
     const payload = {
       action: 'vacancy_location_selected',
       lat: selectedPlace.lat,
@@ -650,58 +722,62 @@ saveButton.addEventListener('click', function() {
       label: selectedPlace.label
     };
 
-    if (tg) {
+    try {
       tg.sendData(JSON.stringify(payload));
-      setStatus('Місце передано боту. Очікуйте підтвердження.');
-    } else {
-      setStatus('Для додавання вакансії відкрийте карту через Telegram.');
+      setStatus('Дані передано Telegram-боту.');
+    } catch (error) {
+      console.error(error);
+      setStatus('Не вдалося передати дані боту.');
     }
 
-  } else {
-    setStatus('Спочатку виберіть режим збереження місця.');
+    return;
   }
+
+  setStatus('Оберіть режим перед збереженням.');
 });
 
 // ==================================================
-// СКАСУВАННЯ
+// 12. СКАСУВАННЯ
 // ==================================================
 
 cancelButton.addEventListener('click', function() {
   clearTemporaryMarker();
   setMode('view');
-  setStatus('Вибір скасовано.');
+
+  setStatus('Зміни скасовано. Збережена позначка не змінена.');
 });
 
 // ==================================================
-// ЗАПУСК РЕЖИМУ З TELEGRAM
+// 13. РЕЖИМ ВІД TELEGRAM
 // ==================================================
 
-function readTelegramStartParameter() {
-  if (!tg || !tg.initDataUnsafe) return;
+function initializeTelegramMode() {
+  if (!tg) return;
 
-  const params = new URLSearchParams(location.search);
+  const params = new URLSearchParams(window.location.search);
 
-  const mode = params.get('mode');
+  const requestedMode = params.get('mode');
 
-  if (mode === 'home') {
-    enableHomeMode();
-  }
-
-  if (mode === 'vacancy') {
+  if (requestedMode === 'vacancy') {
     setMode('vacancy');
-    setStatus('Виберіть місце роботи для вакансії.');
+
+    setStatus(
+      'Виберіть адресу або місце роботи для вакансії.'
+    );
   }
 }
 
-readTelegramStartParameter();
+initializeTelegramMode();
 
 // ==================================================
-// ПІДГОНКА РОЗМІРУ КАРТИ
+// 14. ОСТАТОЧНЕ НАЛАШТУВАННЯ РОЗМІРУ
 // ==================================================
 
-setTimeout(function() {
-  map.invalidateSize();
-}, 300);
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    map.invalidateSize();
+  }, 300);
+});
 
 window.addEventListener('resize', function() {
   map.invalidateSize();
