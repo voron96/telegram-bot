@@ -2,12 +2,14 @@ from telegram import (
     Update,
     ChatPermissions,
     InlineKeyboardButton,
-    InlineKeyboardMarkup
+    InlineKeyboardMarkup,
+    WebAppInfo
 )
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
     MessageHandler,
+    CommandHandler,
     filters,
 )
 import regex as re
@@ -298,7 +300,27 @@ async def post_init(app):
     await app.bot.delete_webhook(drop_pending_updates=True)
     asyncio.create_task(daily_scheduler(app))
 
+# ================= ЗАПУСК КАРТИ =================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🗺️ Відкрити карту підробітків",
+                web_app=WebAppInfo(
+                    url="https://voron96.github.io/telegram-bot/"
+                )
+            )
+        ]
+    ])
 
+    await update.effective_message.reply_text(
+        "👋 Вітаємо!\n\n"
+        "Відкривайте карту підробітків Києва та області "
+        "і переглядайте доступні вакансії 🗺️",
+        reply_markup=keyboard,
+        disable_notification=True
+    )
+    
 # ================= ЗАПУСК =================
 def main():
     app = (
@@ -309,7 +331,10 @@ def main():
     )
 
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, ban_non_admin_bots), group=-1)
-    app.add_handler(MessageHandler(filters.ALL, main_moderation))
+
+    app.add_handler(CommandHandler("start", start))
+
+    app.add_handler(MessageHandler(filters.ALL, main_moderation)))
 
     print("BOT STARTED ✅")
 
