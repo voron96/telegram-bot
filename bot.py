@@ -12,12 +12,16 @@ from telegram.ext import (
     CommandHandler,
     filters,
 )
+import os
 import regex as re
 import asyncio
 from datetime import datetime, timedelta
 
 # ================= НАЛАШТУВАННЯ =================
-TOKEN = "8354126069:AAG29DcYkn0SCWWPMAJo91zXkClh-_rIAQU"
+TOKEN = os.getenv("BOT_TOKEN")
+
+if not TOKEN:
+    raise RuntimeError("BOT_TOKEN не знайдено в Railway Variables")
 CHAT_ID = -1002190311306  # ID твоєї групи
 
 CHANNEL_ID = -1002375622983  # ID офіційного каналу
