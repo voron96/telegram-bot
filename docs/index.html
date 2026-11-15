@@ -569,6 +569,7 @@ homeButton.addEventListener('click', function() {
 // 9. ПОШУК АДРЕСИ
 // ==================================================
 
+
 async function searchAddress() {
   const query = addressInput.value.trim();
 
@@ -585,14 +586,14 @@ async function searchAddress() {
 
   try {
     const params = new URLSearchParams({
-      q: query + ', Київська область, Україна',
+      q: query,
       format: 'jsonv2',
       addressdetails: '1',
-      limit: '10',
+      limit: '15',
       countrycodes: 'ua',
       'accept-language': 'uk',
       viewbox: '29.15,51.85,32.25,49.15',
-      bounded: '1'
+      bounded: '0'
     });
 
     const response = await fetch(
@@ -615,11 +616,17 @@ async function searchAddress() {
         };
       })
       .filter(function(item) {
-        return isInsideRegion(item.lat, item.lon);
+        return (
+          Number.isFinite(item.lat) &&
+          Number.isFinite(item.lon) &&
+          isInsideRegion(item.lat, item.lon)
+        );
       });
 
     if (!found.length) {
-      setStatus('Адресу не знайдено. Спробуйте інше написання.');
+      setStatus(
+        'Адресу не знайдено в Києві та області. Спробуйте вказати місто або район.'
+      );
       return;
     }
 
