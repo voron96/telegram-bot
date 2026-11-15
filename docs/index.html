@@ -259,16 +259,29 @@ const modeLabel = document.getElementById('modeLabel');
 // ==================================================
 
 let mode = 'view';
-  const tg = window.Telegram?.WebApp;
 
-const startParam =
-  tg?.initDataUnsafe?.start_param || '';
+let tg = null;
+
+if (window.Telegram && window.Telegram.WebApp) {
+  tg = window.Telegram.WebApp;
+}
+
+let startParam = '';
+
+if (
+  tg &&
+  tg.initDataUnsafe &&
+  tg.initDataUnsafe.start_param
+) {
+  startParam = tg.initDataUnsafe.start_param;
+}
 
 let markerId = null;
 
-if (startParam.startsWith('marker_')) {
-  markerId = startParam.replace('marker_', '');
+if (startParam.indexOf('marker_') === 0) {
+  markerId = startParam.substring(7);
 }
+
 let selectedPlace = null;
 let temporaryMarker = null;
 let homeMarker = null;
