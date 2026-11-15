@@ -140,7 +140,6 @@ async def get_map_markers(request):
         headers={"Access-Control-Allow-Origin": "*"}
     )
 
-
 # ================= КНОПКА ДОДАВАННЯ МІТКИ =================
 
 async def add_pin_button(update, context):
@@ -150,10 +149,7 @@ async def add_pin_button(update, context):
     if not msg or not user or user.is_bot:
         return
 
-    if msg.chat_id != CHAT_ID:
-        return
-
-    if msg.sender_chat:
+    if msg.chat_id != CHAT_ID or msg.sender_chat:
         return
 
     if msg.text and msg.text.startswith("/"):
@@ -170,15 +166,10 @@ async def add_pin_button(update, context):
     )
 
     try:
-        app_url = (
-            f"https://t.me/PartTimeJobHub_bot_bot/app"
-            f"?startapp={request_id}"
-        )
-
         keyboard = InlineKeyboardMarkup([[
             InlineKeyboardButton(
                 "📍 Розмістити оголошення на карті",
-                url=app_url
+                callback_data=f"map:{request_id}"
             )
         ]])
 
