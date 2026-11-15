@@ -142,6 +142,7 @@ async def get_map_markers(request):
 
 
 
+
 # ================= КНОПКА ДОДАВАННЯ МІТКИ =================
 
 async def add_pin_button(update, context):
@@ -161,6 +162,7 @@ async def add_pin_button(update, context):
         return
 
     request_id = secrets.token_urlsafe(8)
+
     expires = (
         datetime.utcnow() + timedelta(minutes=5)
     ).isoformat()
@@ -178,7 +180,7 @@ async def add_pin_button(update, context):
         ]])
 
         sent = await msg.reply_text(
-            "\u200b",
+            "📍",
             reply_markup=keyboard,
             disable_notification=True
         )
