@@ -477,6 +477,7 @@ loadHomeMarker();
 
 const MAP_API_URL = 'https://telegram-bot-production-b3fe24ca.up.railway.app';
 
+
 async function loadSharedMarkers() {
   try {
     const response = await fetch(
@@ -490,18 +491,56 @@ async function loadSharedMarkers() {
     const data = await response.json();
 
     (data.markers || []).forEach(marker => {
-      const vacancyMarker = L.marker([
-        Number(marker.latitude),
-        Number(marker.longitude)
-      ]).addTo(map);
+      const isClosed = Number(marker.is_closed) === 1;
+
+      let vacancyMarker;
+
+      if (isClosed) {
+        const closedIcon = L.divIcon({
+          className: 'closed-vacancy-marker',
+          html: '<div style="' +
+            'width:32px;' +
+            'height:32px;' +
+            'background:#e53935;' +
+            'border:3px solid white;' +
+            'border-radius:50%;' +
+            'display:flex;' +
+            'align-items:center;' +
+            'justify-content:center;' +
+            'color:white;' +
+            'font-size:23px;' +
+            'font-weight:bold;' +
+            'box-shadow:0 2px 6px rgba(0,0,0,0.4);' +
+          '">×</div>',
+          iconSize: [38, 38],
+          iconAnchor: [19, 19],
+          popupAnchor: [0, -19]
+        });
+
+        vacancyMarker = L.marker(
+          [
+            Number(marker.latitude),
+            Number(marker.longitude)
+          ],
+          { icon: closedIcon }
+        ).addTo(map);
+
+      } else {
+        vacancyMarker = L.marker([
+          Number(marker.latitude),
+          Number(marker.longitude)
+        ]).addTo(map);
+      }
 
       vacancyMarker.bindPopup(
-        '<b>📍 Вакансія</b><br>' +
+        (isClosed
+          ? '<b>❌ Вакансія не актуальна</b><br>'
+          : '<b>📍 Вакансія</b><br>') +
         escapeHTML(marker.text) +
         '<br><br>' +
         '<a href="https://t.me/kiev_part_time_job/' +
-            encodeURIComponent(marker.message_id) +
-            '" target="_blank">Відкрити оголошення</a>'
+          encodeURIComponent(marker.message_id) +
+          '" target="_blank">Відкрити оголошення</a>'
       );
     });
 
