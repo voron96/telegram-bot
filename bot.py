@@ -15,6 +15,9 @@ from telegram.ext import (
 import os
 import regex as re
 import asyncio
+import sqlite3
+import json
+from aiohttp import web
 from datetime import datetime, timedelta
 
 # ================= НАЛАШТУВАННЯ =================
@@ -34,6 +37,91 @@ KIEV_OFFSET = timedelta(hours=3)
 
 warn_short_text = set()
 daily_message_id = None
+
+# ================= СПІЛЬНА КАРТА =================
+
+MAP_DB = "/data/markers.db"
+MAP_PORT = int(os.getenv("PORT", "8080"))
+
+def init_map_db():
+    os.makedirs("/data", exist_ok=True)
+
+    with sqlite3.connect(MAP_DB) as db:
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS vacancy_markers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                chat_id INTEGER NOT NULL,
+                message_id INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                latitude REAL NOT NULL,
+                longitude REAL NOT NULL,
+                label TEXT,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            )
+        """)
+
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS pending_map_requests (
+                request_id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                chat_id INTEGER NOT NULL,
+                message_id INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            )
+        """)
+
+    print("MAP DATABASE READY ✅")
+
+# ================= API СПІЛЬНОЇ КАРТИ =================
+
+async def get_map_markers(request):
+    now = datetime.utcnow().isoformat()
+
+    with sqlite3.connect(MAP_DB) as db:
+        db.row_factory = sqlite3.Row
+
+        rows = db.execute("""
+            SELECT id, text, latitude, longitude, label,
+                   message_id, created_at, expires_at
+            FROM vacancy_markers
+            WHERE expires_at > ?
+            ORDER BY created_at DESC
+        """, (now,)).fetchall()
+
+    markers = [dict(row) for row in rows]
+
+    return web.json_response(
+        {"markers": markers},
+        headers={
+            "Access-Control-Allow-Origin": "*"
+        }
+    )
+    
+    # ================= ЗАПУСК API-СЕРВЕРА =================
+
+async def start_map_server():
+    init_map_db()
+
+    app = web.Application()
+    app.router.add_get("/api/markers", get_map_markers)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+
+    site = web.TCPSite(
+        runner,
+        "0.0.0.0",
+        MAP_PORT
+    )
+
+    await site.start()
+
+    print(f"MAP SERVER STARTED ON PORT {MAP_PORT} ✅")
+
+    return runner
 
 # ================= ПІДРАХУНОК ЕМОДЗІ =================
 def count_emoji(text: str) -> int:
@@ -300,8 +388,24 @@ async def daily_scheduler(app):
         await send_daily_message(app.bot)
 
 
+map_runner = None
+
+async def post_shutdown(app):
+    global map_runner
+
+    if map_runner:
+        await map_runner.cleanup()
+        map_runner = None
+
+    print("MAP SERVER STOPPED ✅")
+
 async def post_init(app):
+    global map_runner
+
     await app.bot.delete_webhook(drop_pending_updates=True)
+
+    map_runner = await start_map_server()
+
     asyncio.create_task(daily_scheduler(app))
 
 # ================= ЗАПУСК КАРТИ =================
@@ -326,19 +430,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
 # ================= ЗАПУСК =================
+
 def main():
     app = (
         ApplicationBuilder()
         .token(TOKEN)
         .post_init(post_init)
+        .post_shutdown(post_shutdown)
         .build()
     )
 
-    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, ban_non_admin_bots), group=-1)
+    app.add_handler(
+        MessageHandler(
+            filters.StatusUpdate.NEW_CHAT_MEMBERS,
+            ban_non_admin_bots
+        ),
+        group=-1
+    )
 
-    app.add_handler(CommandHandler("start", start))
+    app.add_handler(
+        CommandHandler("start", start)
+    )
 
-    app.add_handler(MessageHandler(filters.ALL, main_moderation))
+    app.add_handler(
+        MessageHandler(filters.ALL, main_moderation)
+    )
 
     print("BOT STARTED ✅")
 
