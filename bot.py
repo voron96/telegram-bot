@@ -159,7 +159,7 @@ async def add_pin_button(update, context):
     if msg.text and msg.text.startswith("/"):
         return
 
-    request_id = secrets.token_urlsafe(8)
+        request_id = secrets.token_urlsafe(8)
     expires = (datetime.utcnow() + timedelta(minutes=5)).isoformat()
     message_text = msg.text or msg.caption or "[Повідомлення без тексту]"
 
@@ -171,7 +171,7 @@ async def add_pin_button(update, context):
             )
         ]])
 
-                sent = await msg.reply_text(
+        sent = await msg.reply_text(
             "\u200b",
             reply_markup=keyboard,
             disable_notification=True
