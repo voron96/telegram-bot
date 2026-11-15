@@ -260,20 +260,15 @@ const modeLabel = document.getElementById('modeLabel');
 
 let mode = 'view';
 
-let tg = null;
-
-if (window.Telegram && window.Telegram.WebApp) {
-  tg = window.Telegram.WebApp;
-}
-
 let startParam = '';
 
 if (
-  tg &&
-  tg.initDataUnsafe &&
-  tg.initDataUnsafe.start_param
+  window.Telegram &&
+  window.Telegram.WebApp &&
+  window.Telegram.WebApp.initDataUnsafe
 ) {
-  startParam = tg.initDataUnsafe.start_param;
+  startParam =
+    window.Telegram.WebApp.initDataUnsafe.start_param || '';
 }
 
 let markerId = null;
@@ -286,7 +281,6 @@ let selectedPlace = null;
 let temporaryMarker = null;
 let homeMarker = null;
 let homeLocation = null;
-
 // ==================================================
 // 4. ДОПОМІЖНІ ФУНКЦІЇ
 // ==================================================
