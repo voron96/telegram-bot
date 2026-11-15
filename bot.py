@@ -171,7 +171,7 @@ async def add_pin_button(update, context):
 
     try:
         app_url = (
-            f"https://t.me/PartTimeJobHub_bot_bot"
+            f"https://t.me/PartTimeJobHub_bot_bot/app"
             f"?startapp={request_id}"
         )
 
