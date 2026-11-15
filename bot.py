@@ -65,7 +65,9 @@ def init_map_db():
                 longitude REAL NOT NULL,
                 label TEXT,
                 created_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL
+                expires_at TEXT NOT NULL,
+                button_message_id INTEGER,
+                is_closed INTEGER NOT NULL DEFAULT 0
             )
         """)
 
@@ -76,18 +78,38 @@ def init_map_db():
                 chat_id INTEGER NOT NULL,
                 message_id INTEGER NOT NULL,
                 text TEXT NOT NULL,
-                expires_at TEXT NOT NULL
+                expires_at TEXT NOT NULL,
+                button_message_id INTEGER
             )
         """)
 
-        columns = [
+        marker_columns = [
+            row[1]
+            for row in db.execute(
+                "PRAGMA table_info(vacancy_markers)"
+            ).fetchall()
+        ]
+
+        if "button_message_id" not in marker_columns:
+            db.execute("""
+                ALTER TABLE vacancy_markers
+                ADD COLUMN button_message_id INTEGER
+            """)
+
+        if "is_closed" not in marker_columns:
+            db.execute("""
+                ALTER TABLE vacancy_markers
+                ADD COLUMN is_closed INTEGER NOT NULL DEFAULT 0
+            """)
+
+        pending_columns = [
             row[1]
             for row in db.execute(
                 "PRAGMA table_info(pending_map_requests)"
             ).fetchall()
         ]
 
-        if "button_message_id" not in columns:
+        if "button_message_id" not in pending_columns:
             db.execute("""
                 ALTER TABLE pending_map_requests
                 ADD COLUMN button_message_id INTEGER
@@ -105,7 +127,7 @@ async def get_map_markers(request):
 
         rows = db.execute("""
             SELECT id, text, latitude, longitude, label,
-                   message_id, created_at, expires_at
+                   message_id, created_at, expires_at, is_closed
             FROM vacancy_markers
             WHERE expires_at > ?
             ORDER BY created_at DESC
@@ -342,11 +364,18 @@ async def save_map_marker(request):
             created = datetime.utcnow()
             expires = created + timedelta(hours=8)
 
+            button_message_id = row["button_message_id"]
+            chat_id = row["chat_id"]
+
             cursor = db.execute("""
                 INSERT INTO vacancy_markers
-                (user_id, chat_id, message_id, text, latitude,
-                 longitude, label, created_at, expires_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (
+                    user_id, chat_id, message_id, text,
+                    latitude, longitude, label,
+                    created_at, expires_at,
+                    button_message_id, is_closed
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             """, (
                 user["id"],
                 row["chat_id"],
@@ -356,12 +385,11 @@ async def save_map_marker(request):
                 longitude,
                 label,
                 created.isoformat(),
-                expires.isoformat()
+                expires.isoformat(),
+                button_message_id
             ))
 
             marker_id = cursor.lastrowid
-            button_message_id = row["button_message_id"]
-            chat_id = row["chat_id"]
 
             db.execute("""
                 DELETE FROM pending_map_requests
@@ -658,6 +686,91 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ----- КНОПКА ДОДАВАННЯ НА КАРТУ -----
     await add_pin_button(update, context)
+
+
+# ================= ОНОВЛЕННЯ СТАТУСУ ВАКАНСІЇ НА КАРТІ =================
+
+CLOSED_VACANCY_RE = re.compile(
+    r"(?<!\w)(?:закрито|закрив|закрила|не\s+актуально)(?!\w)",
+    re.IGNORECASE
+)
+
+
+async def handle_edited_vacancy(update, context):
+    msg = update.edited_message
+
+    if not msg or msg.chat_id != CHAT_ID:
+        return
+
+    if msg.sender_chat:
+        return
+
+    text = msg.text or msg.caption or ""
+    is_closed = 1 if CLOSED_VACANCY_RE.search(text) else 0
+
+    now = datetime.utcnow().isoformat()
+
+    with sqlite3.connect(MAP_DB) as db:
+        db.row_factory = sqlite3.Row
+
+        marker = db.execute("""
+            SELECT id, button_message_id
+            FROM vacancy_markers
+            WHERE chat_id = ?
+              AND message_id = ?
+              AND expires_at > ?
+            LIMIT 1
+        """, (
+            msg.chat_id,
+            msg.message_id,
+            now
+        )).fetchone()
+
+        # Якщо оголошення не має мітки на карті — нічого не робимо
+        if not marker:
+            return
+
+        db.execute("""
+            UPDATE vacancy_markers
+            SET text = ?, is_closed = ?
+            WHERE id = ?
+        """, (
+            text or "[Повідомлення без тексту]",
+            is_closed,
+            marker["id"]
+        ))
+
+        button_message_id = marker["button_message_id"]
+
+    # Оновлюємо кнопку під оголошенням
+    if map_bot and button_message_id:
+        try:
+            button_text = (
+                "❌ Вакансія не актуальна"
+                if is_closed
+                else "🗺 Переглянути оголошення на карті"
+            )
+
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton(
+                    button_text,
+                    url=MAP_WEBAPP_URL + "?marker_id=" + str(marker["id"])
+                )
+            ]])
+
+            await map_bot.edit_message_reply_markup(
+                chat_id=msg.chat_id,
+                message_id=button_message_id,
+                reply_markup=keyboard
+            )
+
+        except Exception as error:
+            print("CLOSED VACANCY BUTTON ERROR:", error)
+
+    print(
+        f"MAP VACANCY UPDATED: {marker['id']} | CLOSED: {is_closed}"
+    )
+
     
 # ================= ЩОДЕННЕ ПОВІДОМЛЕННЯ =================
 async def send_daily_message(bot):
@@ -809,6 +922,15 @@ def main():
     app.add_handler(
         MessageHandler(filters.ALL, main_moderation),
         group=0
+    )
+
+    # Обробка редагування оголошень на карті
+    app.add_handler(
+        MessageHandler(
+            filters.UpdateType.EDITED_MESSAGE & filters.Chat(CHAT_ID),
+            handle_edited_vacancy
+        ),
+        group=1
     )
 
     print("BOT STARTED ✅")
