@@ -470,6 +470,47 @@ function loadHomeMarker() {
 }
 
 loadHomeMarker();
+  
+  // ==================================================
+// СПІЛЬНІ ПОЗНАЧКИ ВАКАНСІЙ
+// ==================================================
+
+const MAP_API_URL = 'https://telegram-bot-production-b3fe24ca.up.railway.app';
+
+async function loadSharedMarkers() {
+  try {
+    const response = await fetch(
+      MAP_API_URL + '/api/markers'
+    );
+
+    if (!response.ok) {
+      throw new Error('Помилка завантаження міток');
+    }
+
+    const data = await response.json();
+
+    (data.markers || []).forEach(marker => {
+      const vacancyMarker = L.marker([
+        Number(marker.latitude),
+        Number(marker.longitude)
+      ]).addTo(map);
+
+      vacancyMarker.bindPopup(
+        '<b>📍 Вакансія</b><br>' +
+        escapeHTML(marker.text) +
+        '<br><br>' +
+        '<a href="https://t.me/kiev_shat/' +
+        encodeURIComponent(marker.message_id) +
+        '" target="_blank">Відкрити оголошення в Telegram</a>'
+      );
+    });
+
+  } catch (error) {
+    console.warn('Помилка спільних позначок:', error);
+  }
+}
+
+loadSharedMarkers();
 
 // ==================================================
 // 8. РЕЖИМ ЗМІНИ ДОМАШНЬОЇ ПОЗНАЧКИ
@@ -659,11 +700,8 @@ gpsButton.addEventListener('click', function() {
   );
 });
 
-// ==================================================
-// 11. ЗБЕРЕЖЕННЯ ДОМАШНЬОЇ ПОЗНАЧКИ
-// ==================================================
 
-saveButton.addEventListener('click', function() {
+saveButton.addEventListener('click', async function() {
   if (!selectedPlace) {
     setStatus('Спочатку виберіть місце на карті.');
     return;
@@ -715,19 +753,52 @@ saveButton.addEventListener('click', function() {
       return;
     }
 
-    const payload = {
-      action: 'vacancy_location_selected',
-      lat: selectedPlace.lat,
-      lon: selectedPlace.lon,
-      label: selectedPlace.label
-    };
+    if (!tg.initData) {
+      setStatus('Telegram не передав дані для перевірки. Закрийте карту та відкрийте її знову через бота.');
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const requestId = params.get('request_id');
+
+    if (!requestId) {
+      setStatus('Не знайдено запит на додавання вакансії.');
+      return;
+    }
+
+    saveButton.disabled = true;
+    setStatus('Зберігаємо позначку вакансії...');
 
     try {
-      tg.sendData(JSON.stringify(payload));
-      setStatus('Дані передано Telegram-боту.');
+      const response = await fetch(MAP_API_URL + '/api/markers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          initData: tg.initData,
+          request_id: requestId,
+          lat: selectedPlace.lat,
+          lon: selectedPlace.lon,
+          label: selectedPlace.label
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Сервер не зміг зберегти позначку.');
+      }
+
+      clearTemporaryMarker();
+      setMode('view');
+      setStatus('Позначку вакансії збережено! Вона з’явиться на спільній карті.');
+
     } catch (error) {
-      console.error(error);
-      setStatus('Не вдалося передати дані боту.');
+      console.error('Помилка збереження вакансії:', error);
+      setStatus(error.message || 'Не вдалося зберегти позначку. Спробуйте ще раз.');
+    } finally {
+      saveButton.disabled = false;
     }
 
     return;
@@ -739,6 +810,7 @@ saveButton.addEventListener('click', function() {
 // ==================================================
 // 12. СКАСУВАННЯ
 // ==================================================
+
 
 cancelButton.addEventListener('click', function() {
   clearTemporaryMarker();
