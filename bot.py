@@ -180,7 +180,7 @@ async def add_pin_button(update, context):
         ]])
 
         sent = await msg.reply_text(
-            "📍",
+            "🟢 PartTimeJobHub",
             reply_markup=keyboard,
             disable_notification=True
         )
