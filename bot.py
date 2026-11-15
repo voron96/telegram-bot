@@ -166,19 +166,6 @@ async def add_pin_button(update, context):
     )
 
     try:
-        keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton(
-                "📍 Розмістити оголошення на карті",
-                url=f"https://t.me/PartTimeJobHub_bot_bot?startapp={request_id}"
-            )
-        ]])
-
-        sent = await msg.reply_text(
-            "🟢 PartTimeJobHub",
-            reply_markup=keyboard,
-            disable_notification=True
-        )
-
         with sqlite3.connect(MAP_DB) as db:
             db.execute("""
                 INSERT INTO pending_map_requests
@@ -192,7 +179,33 @@ async def add_pin_button(update, context):
                 msg.message_id,
                 message_text,
                 expires,
-                sent.message_id
+                None
+            ))
+
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton(
+                "📍 Розмістити оголошення на карті",
+                url=(
+                    "https://t.me/PartTimeJobHub_bot_bot"
+                    "?startapp=" + request_id
+                )
+            )
+        ]])
+
+        sent = await msg.reply_text(
+            "🟢 PartTimeJobHub",
+            reply_markup=keyboard,
+            disable_notification=True
+        )
+
+        with sqlite3.connect(MAP_DB) as db:
+            db.execute("""
+                UPDATE pending_map_requests
+                SET button_message_id = ?
+                WHERE request_id = ?
+            """, (
+                sent.message_id,
+                request_id
             ))
 
     except Exception as error:
