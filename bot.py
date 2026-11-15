@@ -80,8 +80,20 @@ def init_map_db():
             )
         """)
 
-    print("MAP DATABASE READY ✅")
+        columns = [
+            row[1]
+            for row in db.execute(
+                "PRAGMA table_info(pending_map_requests)"
+            ).fetchall()
+        ]
 
+        if "button_message_id" not in columns:
+            db.execute("""
+                ALTER TABLE pending_map_requests
+                ADD COLUMN button_message_id INTEGER
+            """)
+
+    print("MAP DATABASE READY ✅")
 
 # ================= API СПІЛЬНОЇ КАРТИ =================
 
@@ -129,33 +141,36 @@ async def add_pin_button(update, context):
     expires = (datetime.utcnow() + timedelta(minutes=5)).isoformat()
     message_text = msg.text or msg.caption or "[Повідомлення без тексту]"
 
-    with sqlite3.connect(MAP_DB) as db:
-        db.execute("""
-            INSERT INTO pending_map_requests
-            (request_id, user_id, chat_id, message_id, text, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            request_id,
-            user.id,
-            msg.chat_id,
-            msg.message_id,
-            message_text,
-            expires
-        ))
-
-    keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton(
-            "📍 Додати на карту",
-            callback_data=f"map:{request_id}"
-        )
-    ]])
-
     try:
-        await msg.reply_text(
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton(
+                "📍 Розмістити оголошення на карті",
+                callback_data=f"map:{request_id}"
+            )
+        ]])
+
+        sent = await msg.reply_text(
             "📍 Додати це оголошення на карту?",
             reply_markup=keyboard,
             disable_notification=True
         )
+
+        with sqlite3.connect(MAP_DB) as db:
+            db.execute("""
+                INSERT INTO pending_map_requests
+                (request_id, user_id, chat_id, message_id, text,
+                 expires_at, button_message_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                request_id,
+                user.id,
+                msg.chat_id,
+                msg.message_id,
+                message_text,
+                expires,
+                sent.message_id
+            ))
+
     except Exception as error:
         print("MAP BUTTON ERROR:", error)
 
@@ -294,6 +309,10 @@ async def save_map_marker(request):
                 status=400
             )
 
+        marker_id = None
+        button_message_id = None
+        chat_id = None
+
         with sqlite3.connect(MAP_DB) as db:
             db.row_factory = sqlite3.Row
 
@@ -323,7 +342,7 @@ async def save_map_marker(request):
             created = datetime.utcnow()
             expires = created + timedelta(hours=8)
 
-            db.execute("""
+            cursor = db.execute("""
                 INSERT INTO vacancy_markers
                 (user_id, chat_id, message_id, text, latitude,
                  longitude, label, created_at, expires_at)
@@ -340,13 +359,39 @@ async def save_map_marker(request):
                 expires.isoformat()
             ))
 
+            marker_id = cursor.lastrowid
+            button_message_id = row["button_message_id"]
+            chat_id = row["chat_id"]
+
             db.execute("""
                 DELETE FROM pending_map_requests
                 WHERE request_id = ?
             """, (request_id,))
 
+        # ----- ЗАМІНА СТАРОЇ КНОПКИ -----
+        if map_bot and button_message_id and marker_id:
+            try:
+                keyboard = InlineKeyboardMarkup([[
+                    InlineKeyboardButton(
+                        "🗺 Переглянути оголошення на карті",
+                        url=MAP_WEBAPP_URL + "?marker_id=" + str(marker_id)
+                    )
+                ]])
+
+                await map_bot.edit_message_reply_markup(
+                    chat_id=chat_id,
+                    message_id=button_message_id,
+                    reply_markup=keyboard
+                )
+
+            except Exception as error:
+                print("MAP BUTTON UPDATE ERROR:", error)
+
         return web.json_response(
-            {"success": True},
+            {
+                "success": True,
+                "marker_id": marker_id
+            },
             headers={"Access-Control-Allow-Origin": "*"}
         )
 
@@ -357,7 +402,6 @@ async def save_map_marker(request):
             {"error": "Помилка збереження позначки"},
             status=500
         )
-
 
 # Дозвіл на запити з GitHub Pages
 async def map_options(request):
@@ -686,13 +730,25 @@ async def post_shutdown(app):
     if map_runner:
         await map_runner.cleanup()
         map_runner = None
+map_bot = None
+
+
+async def post_shutdown(app):
+    global map_runner
+
+    if map_runner:
+        await map_runner.cleanup()
+        map_runner = None
 
     print("MAP SERVER STOPPED ✅")
 
+
 async def post_init(app):
-    global map_runner
+    global map_runner, map_bot
 
     await app.bot.delete_webhook(drop_pending_updates=True)
+
+    map_bot = app.bot
 
     map_runner = await start_map_server()
 
