@@ -804,11 +804,18 @@ saveButton.addEventListener('click', async function() {
       return;
     }
 
+    
     const params = new URLSearchParams(window.location.search);
-    const requestId = params.get('request_id');
+
+    // Отримуємо ID оголошення з URL або з Telegram Mini App
+    const requestId =
+      params.get('request_id') ||
+      window.mapRequestId ||
+      tg?.initDataUnsafe?.start_param ||
+      '';
 
     if (!requestId) {
-      setStatus('Не знайдено запит на додавання вакансії.');
+      setStatus('Не знайдено запит на додавання вакансії. Відкрийте карту кнопкою під оголошенням.');
       return;
     }
 
@@ -836,6 +843,8 @@ saveButton.addEventListener('click', async function() {
         throw new Error(result.error || 'Сервер не зміг зберегти позначку.');
       }
 
+      window.mapRequestId = '';
+
       clearTemporaryMarker();
       setMode('view');
       setStatus('Позначку вакансії збережено! Вона з’явиться на спільній карті.');
@@ -848,22 +857,6 @@ saveButton.addEventListener('click', async function() {
     }
 
     return;
-  }
-
-  setStatus('Оберіть режим перед збереженням.');
-});
-
-// ==================================================
-// 12. СКАСУВАННЯ
-// ==================================================
-
-
-cancelButton.addEventListener('click', function() {
-  clearTemporaryMarker();
-  setMode('view');
-
-  setStatus('Зміни скасовано. Збережена позначка не змінена.');
-});
 
 // ==================================================
 // 13. РЕЖИМ ВІД TELEGRAM
@@ -876,7 +869,16 @@ function initializeTelegramMode() {
 
   const requestedMode = params.get('mode');
 
-  if (requestedMode === 'vacancy') {
+  // Отримуємо ID оголошення з посилання startapp
+  const startParam = tg.initDataUnsafe?.start_param || '';
+
+  // Запам'ятовуємо ID для подальшого збереження мітки
+  if (startParam) {
+    window.mapRequestId = startParam;
+  }
+
+  // Відкриваємо режим додавання вакансії
+  if (requestedMode === 'vacancy' || startParam) {
     setMode('vacancy');
 
     setStatus(
@@ -900,7 +902,3 @@ window.addEventListener('load', function() {
 window.addEventListener('resize', function() {
   map.invalidateSize();
 });
-
-</script>
-</body>
-</html>
