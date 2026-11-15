@@ -10,6 +10,7 @@ from telegram.ext import (
     ContextTypes,
     MessageHandler,
     CommandHandler,
+    CallbackQueryHandler,
     filters,
 )
 import os
@@ -17,6 +18,10 @@ import regex as re
 import asyncio
 import sqlite3
 import json
+import secrets
+import hmac
+import hashlib
+from urllib.parse import parse_qsl
 from aiohttp import web
 from datetime import datetime, timedelta
 
@@ -38,10 +43,12 @@ KIEV_OFFSET = timedelta(hours=3)
 warn_short_text = set()
 daily_message_id = None
 
+
 # ================= СПІЛЬНА КАРТА =================
 
 MAP_DB = "/data/markers.db"
 MAP_PORT = int(os.getenv("PORT", "8080"))
+MAP_WEBAPP_URL = "https://voron96.github.io/telegram-bot/"
 
 def init_map_db():
     os.makedirs("/data", exist_ok=True)
@@ -75,6 +82,7 @@ def init_map_db():
 
     print("MAP DATABASE READY ✅")
 
+
 # ================= API СПІЛЬНОЇ КАРТИ =================
 
 async def get_map_markers(request):
@@ -95,18 +103,295 @@ async def get_map_markers(request):
 
     return web.json_response(
         {"markers": markers},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
+
+
+# ================= КНОПКА ДОДАВАННЯ МІТКИ =================
+
+async def add_pin_button(update, context):
+    msg = update.effective_message
+    user = update.effective_user
+
+    if not msg or not user or user.is_bot:
+        return
+
+    if msg.chat_id != CHAT_ID:
+        return
+
+    if msg.sender_chat:
+        return
+
+    if msg.text and msg.text.startswith("/"):
+        return
+
+    request_id = secrets.token_urlsafe(8)
+    expires = (datetime.utcnow() + timedelta(minutes=5)).isoformat()
+    message_text = msg.text or msg.caption or "[Повідомлення без тексту]"
+
+    with sqlite3.connect(MAP_DB) as db:
+        db.execute("""
+            INSERT INTO pending_map_requests
+            (request_id, user_id, chat_id, message_id, text, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            request_id,
+            user.id,
+            msg.chat_id,
+            msg.message_id,
+            message_text,
+            expires
+        ))
+
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            "📍 Додати на карту",
+            callback_data=f"map:{request_id}"
+        )
+    ]])
+
+    try:
+        await msg.reply_text(
+            "📍 Додати це оголошення на карту?",
+            reply_markup=keyboard,
+            disable_notification=True
+        )
+    except Exception as error:
+        print("MAP BUTTON ERROR:", error)
+
+
+# ================= НАТИСКАННЯ КНОПКИ =================
+
+async def map_button_callback(update, context):
+    query = update.callback_query
+    request_id = query.data.replace("map:", "", 1)
+
+    with sqlite3.connect(MAP_DB) as db:
+        db.row_factory = sqlite3.Row
+        row = db.execute("""
+            SELECT * FROM pending_map_requests
+            WHERE request_id = ?
+        """, (request_id,)).fetchone()
+
+    if not row:
+        await query.answer(
+            "Цей запит уже недоступний.",
+            show_alert=True
+        )
+        return
+
+    if row["user_id"] != query.from_user.id:
+        await query.answer(
+            "Ця кнопка доступна лише автору оголошення.",
+            show_alert=True
+        )
+        return
+
+    if datetime.fromisoformat(row["expires_at"]) < datetime.utcnow():
+        await query.answer(
+            "Час дії кнопки минув.",
+            show_alert=True
+        )
+        return
+
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            "Відкрити карту та поставити мітку",
+            web_app=WebAppInfo(
+                url=MAP_WEBAPP_URL + "?mode=vacancy&request_id=" + request_id
+            )
+        )
+    ]])
+
+    try:
+        await context.bot.send_message(
+            chat_id=query.from_user.id,
+            text="📍 Відкрий карту, щоб поставити позначку вакансії.",
+            reply_markup=keyboard,
+            disable_notification=True
+        )
+
+        await query.answer("Перевір приватні повідомлення бота.")
+
+    except Exception as error:
+        print("MAP PRIVATE MESSAGE ERROR:", error)
+        await query.answer(
+            "Спочатку відкрий приватний чат із ботом і натисни /start.",
+            show_alert=True
+        )
+
+# ================= ЗБЕРЕЖЕННЯ ВИБРАНОЇ ТОЧКИ =================
+
+# ================= ПЕРЕВІРКА TELEGRAM WEBAPP =================
+
+def verify_webapp_data(init_data):
+    try:
+        parsed = dict(parse_qsl(init_data, keep_blank_values=True))
+
+        received_hash = parsed.pop("hash", None)
+
+        if not received_hash:
+            return None
+
+        auth_date = int(parsed.get("auth_date", "0"))
+
+        if datetime.utcnow().timestamp() - auth_date > 86400:
+            return None
+
+        data_check_string = "\n".join(
+            f"{key}={value}"
+            for key, value in sorted(parsed.items())
+        )
+
+        secret_key = hmac.new(
+            b"WebAppData",
+            TOKEN.encode(),
+            hashlib.sha256
+        ).digest()
+
+        calculated_hash = hmac.new(
+            secret_key,
+            data_check_string.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(calculated_hash, received_hash):
+            return None
+
+        user_data = json.loads(parsed.get("user", "{}"))
+
+        return user_data
+
+    except Exception as error:
+        print("WEBAPP VERIFY ERROR:", error)
+        return None
+
+
+# ================= ЗАПУСК API-СЕРВЕРА =================
+
+# Збереження вибраної позначки
+async def save_map_marker(request):
+    try:
+        data = await request.json()
+
+        init_data = data.get("initData", "")
+        user = verify_webapp_data(init_data)
+
+        if not user:
+            return web.json_response(
+                {"error": "Не вдалося перевірити користувача"},
+                status=403
+            )
+
+        request_id = str(data.get("request_id", ""))
+        latitude = float(data["lat"])
+        longitude = float(data["lon"])
+        label = str(data.get("label", ""))[:200]
+
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            return web.json_response(
+                {"error": "Некоректні координати"},
+                status=400
+            )
+
+        with sqlite3.connect(MAP_DB) as db:
+            db.row_factory = sqlite3.Row
+
+            row = db.execute("""
+                SELECT * FROM pending_map_requests
+                WHERE request_id = ?
+            """, (request_id,)).fetchone()
+
+            if not row:
+                return web.json_response(
+                    {"error": "Запит не знайдено"},
+                    status=404
+                )
+
+            if row["user_id"] != int(user["id"]):
+                return web.json_response(
+                    {"error": "Це оголошення належить іншому користувачу"},
+                    status=403
+                )
+
+            if datetime.fromisoformat(row["expires_at"]) < datetime.utcnow():
+                return web.json_response(
+                    {"error": "Час дії запиту минув"},
+                    status=410
+                )
+
+            created = datetime.utcnow()
+            expires = created + timedelta(hours=8)
+
+            db.execute("""
+                INSERT INTO vacancy_markers
+                (user_id, chat_id, message_id, text, latitude,
+                 longitude, label, created_at, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                user["id"],
+                row["chat_id"],
+                row["message_id"],
+                row["text"],
+                latitude,
+                longitude,
+                label,
+                created.isoformat(),
+                expires.isoformat()
+            ))
+
+            db.execute("""
+                DELETE FROM pending_map_requests
+                WHERE request_id = ?
+            """, (request_id,))
+
+        return web.json_response(
+            {"success": True},
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+
+    except Exception as error:
+        print("MAP SAVE ERROR:", error)
+
+        return web.json_response(
+            {"error": "Помилка збереження позначки"},
+            status=500
+        )
+
+
+# Дозвіл на запити з GitHub Pages
+async def map_options(request):
+    return web.Response(
         headers={
-            "Access-Control-Allow-Origin": "*"
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type"
         }
     )
-    
-    # ================= ЗАПУСК API-СЕРВЕРА =================
+
 
 async def start_map_server():
     init_map_db()
 
     app = web.Application()
-    app.router.add_get("/api/markers", get_map_markers)
+
+    # Завантаження спільних позначок
+    app.router.add_get(
+        "/api/markers",
+        get_map_markers
+    )
+
+    # Збереження нової позначки
+    app.router.add_post(
+        "/api/markers",
+        save_map_marker
+    )
+
+    # Дозвіл на запити з GitHub Pages
+    app.router.add_options(
+        "/api/markers",
+        map_options
+    )
 
     runner = web.AppRunner(app)
     await runner.setup()
@@ -123,7 +408,11 @@ async def start_map_server():
 
     return runner
 
+
 # ================= ПІДРАХУНОК ЕМОДЗІ =================
+
+# ================= ПІДРАХУНОК ЕМОДЗІ =================
+
 def count_emoji(text: str) -> int:
     if not text:
         return 0
@@ -211,33 +500,18 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user
     msg = update.effective_message
-    text = msg.text or ""
+    text = msg.text or msg.caption or ""
 
-    # ----- НЕ ЧІПАТИ АДМІНІВ -----
-    if update.effective_user:
-        try:
-            member = await context.bot.get_chat_member(
-                CHAT_ID,
-                update.effective_user.id
-            )
-            if member.status in ("administrator", "creator"):
-                return
-        except Exception as e:
-            print(e)
-
-                    # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
+    # ----- ПОВІДОМЛЕННЯ З ОФІЦІЙНОГО КАНАЛУ -----
     if msg.sender_chat and msg.sender_chat.id == CHANNEL_ID:
-
-        # Відкріплюємо повідомлення каналу
         try:
             await context.bot.unpin_chat_message(
                 chat_id=CHAT_ID,
                 message_id=msg.message_id
             )
-        except Exception as e:
-            print("UNPIN CHANNEL ERROR:", e)
+        except Exception as error:
+            print("UNPIN CHANNEL ERROR:", error)
 
-        # Пишемо звичайне повідомлення в чат
         try:
             await context.bot.send_message(
                 chat_id=CHAT_ID,
@@ -246,23 +520,34 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 disable_notification=True,
                 disable_web_page_preview=True
             )
-        except Exception as e:
-            print("CHANNEL NOTICE ERROR:", e)
+        except Exception as error:
+            print("CHANNEL NOTICE ERROR:", error)
 
         return
-        
-    # ----- SYSTEM JOIN / LEFT -----
+
+    # ----- JOIN / LEFT -----
     if msg.new_chat_members or msg.left_chat_member:
         try:
             await msg.delete()
-        except:
+        except Exception:
             pass
         return
-        
+
+    if not user or user.is_bot or msg.sender_chat:
+        return
+
+    # ----- ПЕРЕВІРКА АДМІНІВ -----
+    try:
+        member = await context.bot.get_chat_member(CHAT_ID, user.id)
+
+        if member.status in ("administrator", "creator"):
+            await add_pin_button(update, context)
+            return
+
+    except Exception as error:
+        print("ADMIN CHECK ERROR:", error)
+
     # ----- USERNAME REQUIRED -----
-    user = update.effective_user
-    msg = update.effective_message
-    text = msg.text or msg.caption or ""
     if not user.username:
         await msg.delete()
         m = await context.bot.send_message(
@@ -289,6 +574,7 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ----- EMOJI LIMIT -----
     emoji_count = count_emoji(text)
+
     if emoji_count > MAX_EMOJI:
         await msg.delete()
         await mute_user(context, user.id, MUTE_HOURS)
@@ -323,8 +609,12 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 disable_notification=True
             )
             asyncio.create_task(delete_later(m, 10))
+
         return
 
+    # ----- КНОПКА ДОДАВАННЯ НА КАРТУ -----
+    await add_pin_button(update, context)
+    
 # ================= ЩОДЕННЕ ПОВІДОМЛЕННЯ =================
 async def send_daily_message(bot):
     global daily_message_id
@@ -429,6 +719,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         disable_notification=True
     )
     
+
 # ================= ЗАПУСК =================
 
 def main():
@@ -453,7 +744,15 @@ def main():
     )
 
     app.add_handler(
-        MessageHandler(filters.ALL, main_moderation)
+        CallbackQueryHandler(
+            map_button_callback,
+            pattern=r"^map:"
+        )
+    )
+
+    app.add_handler(
+        MessageHandler(filters.ALL, main_moderation),
+        group=0
     )
 
     print("BOT STARTED ✅")
