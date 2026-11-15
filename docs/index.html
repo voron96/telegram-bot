@@ -259,28 +259,11 @@ const modeLabel = document.getElementById('modeLabel');
 // ==================================================
 
 let mode = 'view';
-
-let startParam = '';
-
-if (
-  window.Telegram &&
-  window.Telegram.WebApp &&
-  window.Telegram.WebApp.initDataUnsafe
-) {
-  startParam =
-    window.Telegram.WebApp.initDataUnsafe.start_param || '';
-}
-
-let markerId = null;
-
-if (startParam.indexOf('marker_') === 0) {
-  markerId = startParam.substring(7);
-}
-
 let selectedPlace = null;
 let temporaryMarker = null;
 let homeMarker = null;
 let homeLocation = null;
+
 // ==================================================
 // 4. ДОПОМІЖНІ ФУНКЦІЇ
 // ==================================================
@@ -494,6 +477,7 @@ loadHomeMarker();
 
 const MAP_API_URL = 'https://telegram-bot-production-b3fe24ca.up.railway.app';
 
+
 async function loadSharedMarkers() {
   try {
     const response = await fetch(
@@ -505,8 +489,6 @@ async function loadSharedMarkers() {
     }
 
     const data = await response.json();
-
-    let targetMarkerFound = false;
 
     (data.markers || []).forEach(marker => {
       const isClosed = Number(marker.is_closed) === 1;
@@ -560,32 +542,10 @@ async function loadSharedMarkers() {
           encodeURIComponent(marker.message_id) +
           '" target="_blank">Відкрити оголошення</a>'
       );
-
-      if (
-        markerId &&
-        String(marker.id) === String(markerId)
-      ) {
-        targetMarkerFound = true;
-
-        map.setView(
-          [
-            Number(marker.latitude),
-            Number(marker.longitude)
-          ],
-          16
-        );
-
-        vacancyMarker.openPopup();
-      }
     });
-
-    if (markerId && !targetMarkerFound) {
-      setStatus('Не вдалося знайти цю вакансію на карті.');
-    }
 
   } catch (error) {
     console.warn('Помилка спільних позначок:', error);
-    setStatus('Не вдалося завантажити вакансії. Спробуйте пізніше.');
   }
 }
 
