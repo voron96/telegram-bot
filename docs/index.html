@@ -107,10 +107,28 @@ button:disabled {
 }
 
 #map {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
   background: #edf1f3;
+}
+
+#menuButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 50%;
+  background: #1684e8;
+  color: white;
+  font-size: 30px;
+  line-height: 46px;
+  text-align: center;
+  box-shadow: 0 2px 8px #0004;
 }
 
 .footer {
@@ -167,22 +185,12 @@ button:disabled {
 
 <div class="header">
   <h2>🗺️ Карта підробітків Києва та області</h2>
-
-  <div class="search">
-    <input
-      id="address"
-      type="search"
-      placeholder="Місто, вулиця або адреса"
-      autocomplete="off"
-    >
-    <button id="searchButton" type="button">Знайти</button>
-  </div>
-
-  <div id="results"></div>
   <div id="status">Знайдіть адресу або встановіть свою позначку.</div>
 </div>
 
-<div id="map"></div>
+<div id="map">
+  <button id="menuButton" type="button" aria-label="Відкрити меню">+</button>
+</div>
 
 <div class="footer">
   <div id="modeLabel" class="mode-label"></div>
