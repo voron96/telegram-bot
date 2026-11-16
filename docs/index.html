@@ -1082,8 +1082,10 @@ setStatus('Зберігаємо позначку вакансії...');
 
       clearTemporaryMarker();
       setMode('view');
-      setStatus('Позначку вакансії збережено! Вона з’явиться на спільній карті.');
 
+      await loadSharedMarkers();
+
+      setStatus('Позначку вакансії успішно збережено! Вона вже відображається на карті.');
     } catch (error) {
       console.error('Помилка збереження вакансії:', error);
       setStatus(error.message || 'Не вдалося зберегти позначку. Спробуйте ще раз.');
