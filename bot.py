@@ -412,7 +412,7 @@ async def save_map_marker(request):
                 keyboard = InlineKeyboardMarkup([[
                     InlineKeyboardButton(
                         "🗺 Переглянути оголошення на карті",
-                        url=MAP_WEBAPP_URL + "?marker_id=" + str(marker_id)
+                        url=f"https://t.me/PartTimeJobHub_bot_bot?startapp=marker_{marker_id}"
                     )
                 ]])
 
