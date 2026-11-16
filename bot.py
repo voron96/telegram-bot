@@ -877,27 +877,30 @@ async def post_init(app):
 
     asyncio.create_task(daily_scheduler(app))
 
-# ================= ЗАПУСК КАРТИ =================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(
-                "🗺️ Відкрити карту підробітків",
-                web_app=WebAppInfo(
-                    url="https://voron96.github.io/telegram-bot/"
-                )
-            )
-        ]
-    ])
 
-    await update.effective_message.reply_text(
-        "👋 Вітаємо!\n\n"
-        "Відкривайте карту підробітків Києва та області "
-        "і переглядайте доступні вакансії 🗺️",
-        reply_markup=keyboard,
-        disable_notification=True
-    )
-    
+# ----- КНОПКА ПЕРЕГЛЯДУ ВАКАНСІЇ В MINI APP -----
+if map_bot and button_message_id and marker_id:
+    try:
+        app_url = (
+            "https://t.me/PartTimeJobHub_bot_bot"
+            f"?startapp=marker_{marker_id}"
+        )
+
+        keyboard = InlineKeyboardMarkup([[
+            InlineKeyboardButton(
+                "🗺 Переглянути оголошення на карті",
+                url=app_url
+            )
+        ]])
+
+        await map_bot.edit_message_reply_markup(
+            chat_id=chat_id,
+            message_id=button_message_id,
+            reply_markup=keyboard
+        )
+
+    except Exception as error:
+        print("MAP BUTTON UPDATE ERROR:", error)
 
 # ================= ЗАПУСК =================
 
