@@ -333,6 +333,19 @@ menuGpsButton.addEventListener('click', function() {
   menuButton.textContent = '+';
   gpsButton.click();
 });
+
+  menuSearchButton.addEventListener('click', function(event) {
+  event.stopPropagation();
+
+  mapMenu.style.display = 'none';
+  menuButton.textContent = '+';
+
+  searchPanel.style.display = 'block';
+});
+
+searchPanel.addEventListener('click', function(event) {
+  event.stopPropagation();
+});
   
 // ==================================================
 // 3. СТАН
