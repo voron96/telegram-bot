@@ -335,8 +335,13 @@ menuButton.addEventListener('click', function() {
   menuButton.textContent = '+';
 });
 menuGpsButton.addEventListener('click', function() {
+  clearTemporaryMarker();
+  setMode('view');
+
   mapMenu.style.display = 'none';
+  searchPanel.style.display = 'none';
   menuButton.textContent = '+';
+
   gpsButton.click();
 });
 
