@@ -313,6 +313,156 @@ def verify_webapp_data(init_data):
         print("WEBAPP VERIFY ERROR:", error)
         return None
 
+# ================= ЗАХИСТ РЕЖИМУ БОГА =================
+
+map_admin_sessions = {}
+
+
+# Вхід у режим бога
+async def admin_unlock(request):
+    try:
+        data = await request.json()
+
+        user = verify_webapp_data(data.get("initData", ""))
+
+        if not user:
+            return web.json_response(
+                {"error": "Не вдалося перевірити Telegram"},
+                status=403
+            )
+
+        admin_id = os.getenv("MAP_ADMIN_USER_ID", "")
+
+        if str(user.get("id")) != admin_id:
+            return web.json_response(
+                {"error": "Доступ заборонено"},
+                status=403
+            )
+
+        saved_password = os.getenv("MAP_ADMIN_PASSWORD", "")
+        entered_password = str(data.get("password", ""))
+
+        if not saved_password:
+            return web.json_response(
+                {"error": "Пароль не налаштований"},
+                status=500
+            )
+
+        if not hmac.compare_digest(entered_password, saved_password):
+            return web.json_response(
+                {"error": "Неправильний пароль"},
+                status=403
+            )
+
+        session_token = secrets.token_urlsafe(32)
+
+        map_admin_sessions[session_token] = (
+            int(user["id"]),
+            datetime.utcnow() + timedelta(minutes=30)
+        )
+
+        return web.json_response({
+            "success": True,
+            "session": session_token
+        })
+
+    except Exception as error:
+        print("ADMIN UNLOCK ERROR:", error)
+        return web.json_response(
+            {"error": "Помилка авторизації"},
+            status=500
+        )
+
+
+# Видалення спільної мітки
+async def admin_delete_marker(request):
+    try:
+        data = await request.json()
+
+        user = verify_webapp_data(data.get("initData", ""))
+
+        if not user:
+            return web.json_response(
+                {"error": "Не вдалося перевірити Telegram"},
+                status=403
+            )
+
+        admin_id = os.getenv("MAP_ADMIN_USER_ID", "")
+
+        if str(user.get("id")) != admin_id:
+            return web.json_response(
+                {"error": "Доступ заборонено"},
+                status=403
+            )
+
+        session_token = str(data.get("session", ""))
+        session = map_admin_sessions.get(session_token)
+
+        if not session or session[0] != int(user["id"]):
+            return web.json_response(
+                {"error": "Потрібно знову ввести пароль"},
+                status=403
+            )
+
+        if datetime.utcnow() > session[1]:
+            map_admin_sessions.pop(session_token, None)
+
+            return web.json_response(
+                {"error": "Час авторизації минув"},
+                status=403
+            )
+
+        marker_id = int(data.get("marker_id", 0))
+
+        if marker_id <= 0:
+            return web.json_response(
+                {"error": "Некоректний номер мітки"},
+                status=400
+            )
+
+        with sqlite3.connect(MAP_DB) as db:
+            db.row_factory = sqlite3.Row
+
+            row = db.execute("""
+                SELECT chat_id, button_message_id
+                FROM vacancy_markers
+                WHERE id = ?
+            """, (marker_id,)).fetchone()
+
+            if not row:
+                return web.json_response(
+                    {"error": "Мітку не знайдено"},
+                    status=404
+                )
+
+            chat_id = row["chat_id"]
+            button_message_id = row["button_message_id"]
+
+            db.execute("""
+                DELETE FROM vacancy_markers
+                WHERE id = ?
+            """, (marker_id,))
+
+        if map_bot and chat_id and button_message_id:
+            try:
+                await map_bot.delete_message(
+                    chat_id=chat_id,
+                    message_id=button_message_id
+                )
+            except Exception as error:
+                print("ADMIN DELETE BUTTON ERROR:", error)
+
+        return web.json_response({
+            "success": True
+        })
+
+    except Exception as error:
+        print("ADMIN DELETE ERROR:", error)
+        return web.json_response(
+            {"error": "Помилка видалення мітки"},
+            status=500
+        )
+
 # ================= ЗАПУСК API-СЕРВЕРА =================
 
 # Збереження вибраної позначки
@@ -451,11 +601,26 @@ async def map_options(request):
         }
     )
 
+@web.middleware
+async def map_cors_middleware(request, handler):
+    response = await handler(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
 
 async def start_map_server():
     init_map_db()
 
-    app = web.Application()
+    app = web.Application(
+        middlewares=[map_cors_middleware]
+    )
+
+    # Далі залишаються всі твої старі маршрути:
+    # /api/markers
+    # /api/admin/unlock
+    # /api/admin/delete-marker
 
     # Завантаження спільних позначок
     app.router.add_get(
@@ -472,6 +637,28 @@ async def start_map_server():
     # Дозвіл на запити з GitHub Pages
     app.router.add_options(
         "/api/markers",
+        map_options
+    )
+    
+    # Вхід у режим бога
+    app.router.add_post(
+        "/api/admin/unlock",
+        admin_unlock
+    )
+
+    app.router.add_options(
+        "/api/admin/unlock",
+        map_options
+    )
+
+    # Видалення спільної мітки
+    app.router.add_post(
+        "/api/admin/delete-marker",
+        admin_delete_marker
+    )
+
+    app.router.add_options(
+        "/api/admin/delete-marker",
         map_options
     )
 
