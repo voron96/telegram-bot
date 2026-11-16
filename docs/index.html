@@ -242,36 +242,28 @@ button:disabled {
 </div>
 </div>
 
-<div class="footer">
+<div class="footer" style="display:none;">
   <div id="modeLabel" class="mode-label"></div>
 
-  <div class="button-row">
-    <button id="gpsButton" class="gps-button" type="button">
-      📍 Моє місцезнаходження
-    </button>
+  <button id="gpsButton" class="gps-button" type="button">
+    📍 Моє місцезнаходження
+  </button>
 
-    <button id="homeButton" class="home-button" type="button">
-      🏠 Змінити домашню позначку
-    </button>
-  </div>
+  <button id="homeButton" class="home-button" type="button">
+    🏠 Змінити домашню позначку
+  </button>
 
-  <div class="button-row" style="margin-top:7px">
-    <button id="saveButton" class="save-button" type="button">
-      Зберегти місце
-    </button>
+  <button id="saveButton" class="save-button" type="button">
+    Зберегти місце
+  </button>
 
-    <button id="cancelButton" class="cancel-button" type="button">
-      Скасувати
-    </button>
-  </div>
+  <button id="cancelButton" class="cancel-button" type="button">
+    Скасувати
+  </button>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-<script>
-'use strict';
-
+  <script>
+    
 // ==================================================
 // 1. НАЛАШТУВАННЯ
 // ==================================================
@@ -334,28 +326,17 @@ menuButton.addEventListener('click', function() {
 
   menuButton.textContent = '+';
 });
-menuGpsButton.addEventListener('click', function() {
+menuGpsButton.addEventListener('click', function(event) {
+  event.stopPropagation();
+
   clearTemporaryMarker();
-  setMode('view');
+  setMode('home');
 
   mapMenu.style.display = 'none';
   searchPanel.style.display = 'none';
   menuButton.textContent = '+';
 
   gpsButton.click();
-});
-
-  menuSearchButton.addEventListener('click', function(event) {
-  event.stopPropagation();
-
-  mapMenu.style.display = 'none';
-  menuButton.textContent = '+';
-
-  searchPanel.style.display = 'block';
-});
-
-searchPanel.addEventListener('click', function(event) {
-  event.stopPropagation();
 });
   
 // ==================================================
