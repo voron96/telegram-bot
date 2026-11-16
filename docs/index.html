@@ -485,6 +485,19 @@ map.on('moveend', function() {
   }
 });
 
+  // Ручне встановлення домашньої мітки
+map.on('click', function(e) {
+  if (mode !== 'home') {
+    return;
+  }
+
+  choosePlace(
+    e.latlng.lat,
+    e.latlng.lng,
+    'Обране місце'
+  );
+});
+  
 // ==================================================
 // 6. ВІДОБРАЖЕННЯ ВИБРАНОГО МІСЦЯ
 // ==================================================
@@ -811,7 +824,6 @@ homeButton.addEventListener('click', function() {
 // 9. ПОШУК АДРЕСИ
 // ==================================================
 
-
 async function searchAddress() {
   const query = addressInput.value.trim();
 
@@ -863,10 +875,8 @@ async function searchAddress() {
         });
     }
 
-    // СПОЧАТКУ ШУКАЄМО В КИЄВІ
     let found = await searchIn('Київ');
 
-    // ЯКЩО НЕ ЗНАЙДЕНО — ШУКАЄМО В ОБЛАСТІ
     if (!found.length) {
       found = await searchIn('Київська область');
     }
@@ -886,30 +896,18 @@ async function searchAddress() {
       button.textContent = item.label;
 
       button.addEventListener('click', function() {
-        if (mode === 'view') {
-          setMode('home');
-        }
-
-        choosePlace(item.lat, item.lon, item.label);
-
+        map.setView([item.lat, item.lon], 16);
         resultsBox.style.display = 'none';
         resultsBox.innerHTML = '';
+        setStatus('Знайдено адресу: ' + item.label);
       });
 
       resultsBox.appendChild(button);
     });
 
     if (found.length === 1) {
-      if (mode === 'view') {
-        setMode('home');
-      }
-
-      choosePlace(
-        found[0].lat,
-        found[0].lon,
-        found[0].label
-      );
-
+      map.setView([found[0].lat, found[0].lon], 16);
+      setStatus('Знайдено адресу: ' + found[0].label);
     } else {
       resultsBox.style.display = 'block';
 
@@ -930,7 +928,8 @@ async function searchAddress() {
     searchButton.disabled = false;
   }
 }
-searchButton.addEventListener('click', searchAddress);
+  
+  searchButton.addEventListener('click', searchAddress);
 
 addressInput.addEventListener('keydown', function(event) {
   if (event.key === 'Enter') {
