@@ -736,7 +736,6 @@ async def handle_edited_vacancy(update, context):
             now
         )).fetchone()
 
-        # Якщо оголошення не має мітки на карті — нічого не робимо
         if not marker:
             return
 
@@ -752,38 +751,79 @@ async def handle_edited_vacancy(update, context):
 
         button_message_id = marker["button_message_id"]
 
-    # ----- ВИДАЛЕННЯ АБО ПОВЕРНЕННЯ КНОПКИ -----
-    if map_bot and button_message_id:
-        try:
-            if is_closed:
-                # Видаляємо кнопку під закритим оголошенням
-                await map_bot.edit_message_reply_markup(
-                    chat_id=msg.chat_id,
-                    message_id=button_message_id,
-                    reply_markup=None
-                )
+    # ----- КНОПКА ДЛЯ АКТИВНОЇ ВАКАНСІЇ -----
 
-            else:
-                # Повертаємо кнопку, якщо вакансію знову відкрили
-                keyboard = InlineKeyboardMarkup([[
-                    InlineKeyboardButton(
-                        "🗺 Переглянути оголошення на карті",
-                        url=f"https://t.me/PartTimeJobHub_bot_bot?startapp=marker_{marker['id']}"
+    if not map_bot:
+        return
+
+    try:
+        if is_closed:
+
+            # Видаляємо повідомлення бота повністю
+            if button_message_id:
+                try:
+                    await map_bot.delete_message(
+                        chat_id=msg.chat_id,
+                        message_id=button_message_id
                     )
-                ]])
+                except Exception as error:
+                    print("MAP BUTTON DELETE ERROR:", error)
 
+                # Запам'ятовуємо, що повідомлення видалене
+                with sqlite3.connect(MAP_DB) as db:
+                    db.execute("""
+                        UPDATE vacancy_markers
+                        SET button_message_id = NULL
+                        WHERE id = ?
+                    """, (marker["id"],))
+
+        else:
+
+            # Створюємо кнопку переходу на карту
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton(
+                    "🗺 Переглянути оголошення на карті",
+                    url=f"https://t.me/PartTimeJobHub_bot_bot?startapp=marker_{marker['id']}"
+                )
+            ]])
+
+            if button_message_id:
+
+                # Якщо повідомлення ще існує — оновлюємо кнопку
                 await map_bot.edit_message_reply_markup(
                     chat_id=msg.chat_id,
                     message_id=button_message_id,
                     reply_markup=keyboard
                 )
 
-        except Exception as error:
-            print("MAP BUTTON UPDATE ERROR:", error)
+            else:
+
+                # Якщо вакансію відкрили повторно —
+                # створюємо нове повідомлення бота під оголошенням
+                sent = await msg.reply_text(
+                    "🟢 PartTimeJobHub",
+                    reply_markup=keyboard,
+                    disable_notification=True
+                )
+
+                # Зберігаємо ID нового повідомлення
+                with sqlite3.connect(MAP_DB) as db:
+                    db.execute("""
+                        UPDATE vacancy_markers
+                        SET button_message_id = ?
+                        WHERE id = ?
+                    """, (
+                        sent.message_id,
+                        marker["id"]
+                    ))
+
+    except Exception as error:
+        print("MAP BUTTON UPDATE ERROR:", error)
 
     print(
         f"MAP VACANCY UPDATED: {marker['id']} | CLOSED: {is_closed}"
     )
+
     
 # ================= ЩОДЕННЕ ПОВІДОМЛЕННЯ =================
 async def send_daily_message(bot):
