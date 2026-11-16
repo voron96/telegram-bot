@@ -793,20 +793,25 @@ saveButton.addEventListener('click', async function() {
     }
 
     if (!tg.initData) {
-      setStatus('Telegram не передав дані для перевірки. Закрийте карту та відкрийте її знову через бота.');
-      return;
-    }
+  setStatus('Telegram не передав дані для перевірки. Закрийте карту та відкрийте її знову через бота.');
+  return;
+}
 
-    const params = new URLSearchParams(window.location.search);
-    const requestId = params.get('request_id');
+const params = new URLSearchParams(window.location.search);
 
-    if (!requestId) {
-      setStatus('Не знайдено запит на додавання вакансії.');
-      return;
-    }
+const requestId =
+  params.get('request_id') ||
+  (tg.initDataUnsafe && tg.initDataUnsafe.start_param
+    ? tg.initDataUnsafe.start_param
+    : '');
 
-    saveButton.disabled = true;
-    setStatus('Зберігаємо позначку вакансії...');
+if (!requestId) {
+  setStatus('Не знайдено запит на додавання вакансії.');
+  return;
+}
+
+saveButton.disabled = true;
+setStatus('Зберігаємо позначку вакансії...');
 
     try {
       const response = await fetch(MAP_API_URL + '/api/markers', {
