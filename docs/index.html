@@ -361,7 +361,7 @@ const map = L.map('map', {
 // Один світлий шар із підписами.
 // Не накладаємо два шари з дубльованими написами.
 L.tileLayer(
-  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   {
     maxZoom: 19,
     attribution: '© OpenStreetMap contributors'
@@ -857,13 +857,10 @@ saveButton.addEventListener('click', async function() {
     }
 
     return;
-  }
-});
 
 // ==================================================
 // 13. РЕЖИМ ВІД TELEGRAM
 // ==================================================
-
 
 function initializeTelegramMode() {
   if (!tg) return;
