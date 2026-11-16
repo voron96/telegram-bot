@@ -132,29 +132,34 @@ button:disabled {
   
 #mapMenu {
   position: absolute;
-  top: 68px;
-  right: 12px;
+  top: 12px;
+  left: 62px;
   z-index: 1001;
-  width: 260px;
-  padding: 10px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 3px 15px #0004;
-}
-
-#mapMenu .search {
   display: flex;
   gap: 6px;
+  padding: 5px;
+  background: rgba(255,255,255,0.92);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #0003;
 }
 
-#mapMenu input {
-  width: 100%;
-  min-width: 0;
+#mapMenu button {
+  padding: 9px 11px;
+  border-radius: 9px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
-#mapMenu #results {
-  max-height: 180px;
-  overflow-y: auto;
+#searchPanel {
+  position: absolute;
+  top: 62px;
+  left: 12px;
+  right: 12px;
+  z-index: 1001;
+  padding: 9px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px #0003;
 }
   
 .footer {
@@ -217,19 +222,24 @@ button:disabled {
 <div id="map">
   <button id="menuButton" type="button" aria-label="Відкрити меню">+</button>
 
-  <div id="mapMenu" style="display:none;">
-    <div class="search">
-      <input
-        id="address"
-        type="search"
-        placeholder="Місто, вулиця або адреса"
-        autocomplete="off"
-      >
-      <button id="searchButton" type="button">Знайти</button>
-    </div>
+<div id="mapMenu" style="display:none;">
+  <button id="menuGpsButton" type="button">📍 GPS</button>
+  <button id="menuSearchButton" type="button">🔎 Пошук</button>
+  <button id="menuAdminButton" type="button">🔐 Адмін</button>
+</div>
 
-    <div id="results"></div>
+<div id="searchPanel" style="display:none;">
+  <div class="search">
+    <input
+      id="address"
+      type="search"
+      placeholder="Місто, вулиця або адреса"
+      autocomplete="off"
+    >
+    <button id="searchButton" type="button">Знайти</button>
   </div>
+  <div id="results"></div>
+</div>
 </div>
 
 <div class="footer">
@@ -303,17 +313,27 @@ const cancelButton = document.getElementById('cancelButton');
 const modeLabel = document.getElementById('modeLabel');
 const menuButton = document.getElementById('menuButton');
 const mapMenu = document.getElementById('mapMenu');
-
+const menuGpsButton = document.getElementById('menuGpsButton');
+const menuSearchButton = document.getElementById('menuSearchButton');
+const menuAdminButton = document.getElementById('menuAdminButton');
+const searchPanel = document.getElementById('searchPanel');
+  
 menuButton.addEventListener('click', function() {
   if (mapMenu.style.display === 'none') {
-    mapMenu.style.display = 'block';
+    mapMenu.style.display = 'flex';
     menuButton.textContent = '×';
   } else {
     mapMenu.style.display = 'none';
     menuButton.textContent = '+';
   }
+  
 });
-
+menuGpsButton.addEventListener('click', function() {
+  mapMenu.style.display = 'none';
+  menuButton.textContent = '+';
+  gpsButton.click();
+});
+  
 // ==================================================
 // 3. СТАН
 // ==================================================
