@@ -901,7 +901,29 @@ async def post_init(app):
 
         except Exception as error:
             print("MAP BUTTON UPDATE ERROR:", error)
-            
+
+# ================= ЗАПУСК КАРТИ =================
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🗺️ Відкрити карту підробітків",
+                web_app=WebAppInfo(
+                    url="https://voron96.github.io/telegram-bot/"
+                )
+            )
+        ]
+    ])
+
+    await update.effective_message.reply_text(
+        "👋 Вітаємо!\n\n"
+        "Відкривайте карту підробітків Києва та області "
+        "і переглядайте доступні вакансії 🗺️",
+        reply_markup=keyboard,
+        disable_notification=True
+    )
+
 # ================= ЗАПУСК =================
 
 def main():
