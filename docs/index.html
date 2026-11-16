@@ -522,8 +522,12 @@ function choosePlace(lat, lon, label) {
   };
 
   // Домашня позначка з кнопками підтвердження
-  if (mode === 'home') {
-    const homeIcon = L.divIcon({
+  
+  // Позначка з кнопками підтвердження
+  {
+    const markerEmoji = mode === 'home' ? '🏠' : '📍';
+
+    const markerIcon = L.divIcon({
       className: '',
       html: `
         <div style="
@@ -575,7 +579,7 @@ function choosePlace(lat, lon, label) {
             width:76px;
             font-size:34px;
             line-height:40px;
-          ">🏠</div>
+          ">${markerEmoji}</div>
         </div>
       `,
       iconSize: [76, 68],
@@ -583,7 +587,7 @@ function choosePlace(lat, lon, label) {
     });
 
     temporaryMarker = L.marker([lat, lon], {
-      icon: homeIcon
+      icon: markerIcon
     }).addTo(map);
 
     const markerElement = temporaryMarker.getElement();
@@ -603,14 +607,6 @@ function choosePlace(lat, lon, label) {
         event.stopPropagation();
         cancelButton.click();
       });
-
-  } else {
-    // Для вакансій залишаємо звичайну синю позначку
-    temporaryMarker = L.marker([lat, lon]).addTo(map);
-
-    temporaryMarker.bindPopup(
-      '<b>' + escapeHTML(selectedPlace.label) + '</b>'
-    ).openPopup();
   }
 
   map.setView([lat, lon], 16);
@@ -618,8 +614,7 @@ function choosePlace(lat, lon, label) {
   setStatus(
     mode === 'home'
       ? 'Перевірте місце та натисніть зелену галочку для збереження або червоний хрестик для скасування.'
-      : 'Обране місце: ' + selectedPlace.label +
-        '. Натисніть «Зберегти місце».'
+      : 'Перевірте місце та натисніть зелену галочку для збереження або червоний хрестик для скасування.'
   );
 }
 
