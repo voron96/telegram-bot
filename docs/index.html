@@ -509,33 +509,107 @@ function choosePlace(lat, lon, label) {
     label: label || 'Вибране місце'
   };
 
-  temporaryMarker = L.marker([lat, lon]).addTo(map);
+  // Домашня позначка з кнопками підтвердження
+  if (mode === 'home') {
+    const homeIcon = L.divIcon({
+      className: '',
+      html: `
+        <div style="
+          position:relative;
+          width:76px;
+          height:68px;
+          text-align:center;
+        ">
+          <button type="button" class="home-confirm"
+            style="
+              position:absolute;
+              top:0;
+              left:2px;
+              width:25px;
+              height:25px;
+              border:0;
+              border-radius:50%;
+              background:white;
+              color:#16a34a;
+              font-size:22px;
+              font-weight:bold;
+              line-height:25px;
+              padding:0;
+              box-shadow:0 1px 5px #0005;
+            ">✓</button>
 
-  temporaryMarker.bindPopup(
-    '<b>' + escapeHTML(selectedPlace.label) + '</b>'
-  ).openPopup();
+          <button type="button" class="home-cancel"
+            style="
+              position:absolute;
+              top:0;
+              right:2px;
+              width:25px;
+              height:25px;
+              border:0;
+              border-radius:50%;
+              background:white;
+              color:#dc2626;
+              font-size:22px;
+              font-weight:bold;
+              line-height:25px;
+              padding:0;
+              box-shadow:0 1px 5px #0005;
+            ">×</button>
+
+          <div style="
+            position:absolute;
+            bottom:0;
+            left:0;
+            width:76px;
+            font-size:34px;
+            line-height:40px;
+          ">🏠</div>
+        </div>
+      `,
+      iconSize: [76, 68],
+      iconAnchor: [38, 62]
+    });
+
+    temporaryMarker = L.marker([lat, lon], {
+      icon: homeIcon
+    }).addTo(map);
+
+    const markerElement = temporaryMarker.getElement();
+
+    L.DomEvent.disableClickPropagation(markerElement);
+
+    markerElement.querySelector('.home-confirm')
+      .addEventListener('click', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        saveButton.click();
+      });
+
+    markerElement.querySelector('.home-cancel')
+      .addEventListener('click', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelButton.click();
+      });
+
+  } else {
+    // Для вакансій залишаємо звичайну синю позначку
+    temporaryMarker = L.marker([lat, lon]).addTo(map);
+
+    temporaryMarker.bindPopup(
+      '<b>' + escapeHTML(selectedPlace.label) + '</b>'
+    ).openPopup();
+  }
 
   map.setView([lat, lon], 16);
 
   setStatus(
-    'Обране місце: ' + selectedPlace.label +
-    '. Натисніть «Зберегти місце».'
+    mode === 'home'
+      ? 'Перевірте місце та натисніть зелену галочку для збереження або червоний хрестик для скасування.'
+      : 'Обране місце: ' + selectedPlace.label +
+        '. Натисніть «Зберегти місце».'
   );
 }
-
-// Натискання на карту дозволене лише в режимі редагування
-map.on('click', function(event) {
-  if (mode !== 'home' && mode !== 'vacancy') {
-    setStatus('Щоб вибрати місце, спочатку увімкніть потрібний режим.');
-    return;
-  }
-
-  choosePlace(
-    event.latlng.lat,
-    event.latlng.lng,
-    'Вибране місце'
-  );
-});
 
 // ==================================================
 // 7. ЗАВАНТАЖЕННЯ ДОМАШНЬОЇ ПОЗНАЧКИ
