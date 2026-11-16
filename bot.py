@@ -313,7 +313,6 @@ def verify_webapp_data(init_data):
         print("WEBAPP VERIFY ERROR:", error)
         return None
 
-
 # ================= ЗАПУСК API-СЕРВЕРА =================
 
 # Збереження вибраної позначки
@@ -440,6 +439,7 @@ async def save_map_marker(request):
             {"error": "Помилка збереження позначки"},
             status=500
         )
+
 
 # Дозвіл на запити з GitHub Pages
 async def map_options(request):
@@ -876,31 +876,6 @@ async def post_init(app):
     map_runner = await start_map_server()
 
     asyncio.create_task(daily_scheduler(app))
-
-
-    # ----- КНОПКА ПЕРЕГЛЯДУ ВАКАНСІЇ В MINI APP -----
-    if map_bot and button_message_id and marker_id:
-        try:
-            app_url = (
-                "https://t.me/PartTimeJobHub_bot_bot"
-                f"?startapp=marker_{marker_id}"
-            )
-
-            keyboard = InlineKeyboardMarkup([[
-                InlineKeyboardButton(
-                    "🗺 Переглянути оголошення на карті",
-                    url=app_url
-                )
-            ]])
-
-            await map_bot.edit_message_reply_markup(
-                chat_id=chat_id,
-                message_id=button_message_id,
-                reply_markup=keyboard
-            )
-
-        except Exception as error:
-            print("MAP BUTTON UPDATE ERROR:", error)
 
 # ================= ЗАПУСК КАРТИ =================
 
