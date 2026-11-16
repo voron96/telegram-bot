@@ -477,7 +477,6 @@ loadHomeMarker();
 
 const MAP_API_URL = 'https://telegram-bot-production-b3fe24ca.up.railway.app';
 
-
 async function loadSharedMarkers() {
   try {
     const response = await fetch(
@@ -489,6 +488,19 @@ async function loadSharedMarkers() {
     }
 
     const data = await response.json();
+
+    const params = new URLSearchParams(window.location.search);
+
+    const startParam =
+      tg && tg.initDataUnsafe
+        ? tg.initDataUnsafe.start_param || ''
+        : '';
+
+    const requestedMarkerId = startParam.startsWith('marker_')
+      ? startParam.substring(7)
+      : params.get('marker_id');
+
+    let selectedMarker = null;
 
     (data.markers || []).forEach(marker => {
       const isClosed = Number(marker.is_closed) === 1;
@@ -542,7 +554,30 @@ async function loadSharedMarkers() {
           encodeURIComponent(marker.message_id) +
           '" target="_blank">Відкрити оголошення</a>'
       );
+
+      if (
+        requestedMarkerId &&
+        String(marker.id) === String(requestedMarkerId)
+      ) {
+        selectedMarker = {
+          marker: vacancyMarker,
+          latitude: Number(marker.latitude),
+          longitude: Number(marker.longitude)
+        };
+      }
     });
+
+    if (selectedMarker) {
+      map.setView(
+        [
+          selectedMarker.latitude,
+          selectedMarker.longitude
+        ],
+        17
+      );
+
+      selectedMarker.marker.openPopup();
+    }
 
   } catch (error) {
     console.warn('Помилка спільних позначок:', error);
