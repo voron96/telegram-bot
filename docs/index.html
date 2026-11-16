@@ -485,9 +485,9 @@ map.on('moveend', function() {
   }
 });
 
-  // Ручне встановлення домашньої мітки
+  // Ручне встановлення позначки на карті
 map.on('click', function(e) {
-  if (mode !== 'home') {
+  if (mode !== 'home' && mode !== 'vacancy') {
     return;
   }
 
