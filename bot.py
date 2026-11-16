@@ -697,11 +697,11 @@ async def main_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ----- КНОПКА ДОДАВАННЯ НА КАРТУ -----
     await add_pin_button(update, context)
 
-
 # ================= ОНОВЛЕННЯ СТАТУСУ ВАКАНСІЇ НА КАРТІ =================
 
 CLOSED_VACANCY_RE = re.compile(
-    r"(?<!\w)(?:закрито|закрив|закрила|не\s+актуально)(?!\w)",
+    r"(?<!\w)(?:закрит\w*|закрив\w*|закрила\w*|закрили\w*|"
+    r"закриваю\w*|закриваємо\w*|не\s+актуально|неактуально)(?!\w)",
     re.IGNORECASE
 )
 
@@ -752,35 +752,38 @@ async def handle_edited_vacancy(update, context):
 
         button_message_id = marker["button_message_id"]
 
-    # Оновлюємо кнопку під оголошенням
+    # ----- ВИДАЛЕННЯ АБО ПОВЕРНЕННЯ КНОПКИ -----
     if map_bot and button_message_id:
         try:
-            button_text = (
-                "❌ Вакансія не актуальна"
-                if is_closed
-                else "🗺 Переглянути оголошення на карті"
-            )
-
-            keyboard = InlineKeyboardMarkup([[
-                InlineKeyboardButton(
-                    button_text,
-                    url=MAP_WEBAPP_URL + "?marker_id=" + str(marker["id"])
+            if is_closed:
+                # Видаляємо кнопку під закритим оголошенням
+                await map_bot.edit_message_reply_markup(
+                    chat_id=msg.chat_id,
+                    message_id=button_message_id,
+                    reply_markup=None
                 )
-            ]])
 
-            await map_bot.edit_message_reply_markup(
-                chat_id=msg.chat_id,
-                message_id=button_message_id,
-                reply_markup=keyboard
-            )
+            else:
+                # Повертаємо кнопку, якщо вакансію знову відкрили
+                keyboard = InlineKeyboardMarkup([[
+                    InlineKeyboardButton(
+                        "🗺 Переглянути оголошення на карті",
+                        url=f"https://t.me/PartTimeJobHub_bot_bot?startapp=marker_{marker['id']}"
+                    )
+                ]])
+
+                await map_bot.edit_message_reply_markup(
+                    chat_id=msg.chat_id,
+                    message_id=button_message_id,
+                    reply_markup=keyboard
+                )
 
         except Exception as error:
-            print("CLOSED VACANCY BUTTON ERROR:", error)
+            print("MAP BUTTON UPDATE ERROR:", error)
 
     print(
         f"MAP VACANCY UPDATED: {marker['id']} | CLOSED: {is_closed}"
     )
-
     
 # ================= ЩОДЕННЕ ПОВІДОМЛЕННЯ =================
 async def send_daily_message(bot):
