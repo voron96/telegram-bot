@@ -944,13 +944,13 @@ addressInput.addEventListener('keydown', function(event) {
 // ==================================================
 
 gpsButton.addEventListener('click', function() {
-  if (!navigator.geolocation) {
-    setStatus('Браузер не підтримує визначення місцезнаходження.');
-    return;
+  if (mode !== 'home') {
+    setMode('home');
   }
 
-  if (mode === 'view') {
-    setMode('home');
+  if (!navigator.geolocation) {
+    setStatus('GPS недоступний. Натисніть потрібне місце на карті, щоб поставити будиночок.');
+    return;
   }
 
   setStatus('Визначаємо ваше місцезнаходження...');
