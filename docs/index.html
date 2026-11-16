@@ -879,7 +879,10 @@ function initializeTelegramMode() {
       ? tg.initDataUnsafe.start_param
       : '';
 
-  if (requestedMode === 'vacancy' || startParam) {
+  if (
+    requestedMode === 'vacancy' ||
+    (startParam && !startParam.startsWith('marker_'))
+  ) {
     setMode('vacancy');
 
     setStatus(
