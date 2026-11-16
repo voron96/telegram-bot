@@ -470,8 +470,8 @@ function loadHomeMarker() {
 }
 
 loadHomeMarker();
-  
-  // ==================================================
+
+// ==================================================
 // СПІЛЬНІ ПОЗНАЧКИ ВАКАНСІЙ
 // ==================================================
 
@@ -544,16 +544,45 @@ async function loadSharedMarkers() {
         ]).addTo(map);
       }
 
+      const vacancyUrl =
+        'https://t.me/kiev_part_time_job/' +
+        encodeURIComponent(marker.message_id);
+
       vacancyMarker.bindPopup(
         (isClosed
           ? '<b>❌ Вакансія не актуальна</b><br>'
           : '<b>📍 Вакансія</b><br>') +
         escapeHTML(marker.text) +
         '<br><br>' +
-        '<a href="https://t.me/kiev_part_time_job/' +
-          encodeURIComponent(marker.message_id) +
-          '" target="_blank">Відкрити оголошення</a>'
+        '<a class="open-vacancy-link" href="' +
+        vacancyUrl +
+        '">Відкрити оголошення</a>'
       );
+
+      vacancyMarker.on('popupopen', function(event) {
+        const link = event.popup
+          .getElement()
+          .querySelector('.open-vacancy-link');
+
+        if (!link) return;
+
+        link.addEventListener('click', function(clickEvent) {
+          clickEvent.preventDefault();
+
+          if (tg && typeof tg.openTelegramLink === 'function') {
+            tg.openTelegramLink(vacancyUrl);
+
+            setTimeout(function() {
+              if (typeof tg.close === 'function') {
+                tg.close();
+              }
+            }, 500);
+
+          } else {
+            window.location.href = vacancyUrl;
+          }
+        }, { once: true });
+      });
 
       if (
         requestedMarkerId &&
