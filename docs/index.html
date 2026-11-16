@@ -605,6 +605,7 @@ homeButton.addEventListener('click', function() {
 // 9. ПОШУК АДРЕСИ
 // ==================================================
 
+
 async function searchAddress() {
   const query = addressInput.value.trim();
 
@@ -617,73 +618,61 @@ async function searchAddress() {
   resultsBox.style.display = 'none';
   resultsBox.innerHTML = '';
 
-  setStatus('Шукаємо адресу...');
-
   try {
-    const params = new URLSearchParams({
-      q: query + ', Україна',
-      format: 'jsonv2',
-      addressdetails: '1',
-      limit: '15',
-      countrycodes: 'ua',
-      'accept-language': 'uk',
-      viewbox: '29.15,51.85,32.25,49.15'
-    });
+    async function searchIn(place) {
+      setStatus('Шукаємо адресу: ' + place + '...');
 
-    const response = await fetch(
-      'https://nominatim.openstreetmap.org/search?' +
-      params.toString()
-    );
+      const params = new URLSearchParams({
+        q: query + ', ' + place + ', Україна',
+        format: 'jsonv2',
+        addressdetails: '1',
+        limit: '10',
+        countrycodes: 'ua',
+        'accept-language': 'uk',
+        viewbox: '29.15,51.85,32.25,49.15',
+        bounded: '1'
+      });
 
-    if (!response.ok) {
-      throw new Error('Сервіс пошуку повернув помилку.');
+      const response = await fetch(
+        'https://nominatim.openstreetmap.org/search?' +
+        params.toString()
+      );
+
+      if (!response.ok) {
+        throw new Error('Сервіс пошуку повернув помилку.');
+      }
+
+      const data = await response.json();
+
+      return data
+        .map(function(item) {
+          return {
+            lat: Number(item.lat),
+            lon: Number(item.lon),
+            label: item.display_name
+          };
+        })
+        .filter(function(item) {
+          return isInsideRegion(item.lat, item.lon);
+        });
     }
 
-    const data = await response.json();
+    // СПОЧАТКУ ШУКАЄМО В КИЄВІ
+    let found = await searchIn('Київ');
 
-    // Залишаємо тільки результати в межах нашого регіону
-    const found = data
-      .map(function(item) {
-        return {
-          lat: Number(item.lat),
-          lon: Number(item.lon),
-          label: item.display_name
-        };
-      })
-      .filter(function(item) {
-        return (
-          Number.isFinite(item.lat) &&
-          Number.isFinite(item.lon) &&
-          isInsideRegion(item.lat, item.lon)
-        );
-      });
+    // ЯКЩО НЕ ЗНАЙДЕНО — ШУКАЄМО В ОБЛАСТІ
+    if (!found.length) {
+      found = await searchIn('Київська область');
+    }
 
-    // Прибираємо дублікати
-    const uniqueFound = [];
-
-    found.forEach(function(item) {
-      const duplicate = uniqueFound.some(function(existing) {
-        return (
-          Math.abs(existing.lat - item.lat) < 0.00001 &&
-          Math.abs(existing.lon - item.lon) < 0.00001
-        );
-      });
-
-      if (!duplicate) {
-        uniqueFound.push(item);
-      }
-    });
-
-    if (!uniqueFound.length) {
-      setStatus(
-        'Адресу не знайдено. Спробуйте ввести назву вулиці разом із містом або номером будинку.'
-      );
+    if (!found.length) {
+      setStatus('Адресу не знайдено. Спробуйте інше написання.');
       return;
     }
 
     resultsBox.innerHTML = '';
 
-    uniqueFound.forEach(function(item) {
+    found.forEach(function(item) {
       const button = document.createElement('button');
 
       button.type = 'button';
@@ -704,25 +693,23 @@ async function searchAddress() {
       resultsBox.appendChild(button);
     });
 
-    if (uniqueFound.length === 1) {
+    if (found.length === 1) {
       if (mode === 'view') {
         setMode('home');
       }
 
       choosePlace(
-        uniqueFound[0].lat,
-        uniqueFound[0].lon,
-        uniqueFound[0].label
+        found[0].lat,
+        found[0].lon,
+        found[0].label
       );
-
-      resultsBox.style.display = 'none';
 
     } else {
       resultsBox.style.display = 'block';
 
       setStatus(
-        'Знайдено варіантів: ' + uniqueFound.length +
-        '. Виберіть потрібну адресу.'
+        'Знайдено адрес: ' + found.length +
+        '. Виберіть потрібний варіант.'
       );
     }
 
@@ -737,15 +724,6 @@ async function searchAddress() {
     searchButton.disabled = false;
   }
 }
-
-searchButton.addEventListener('click', searchAddress);
-
-addressInput.addEventListener('keydown', function(event) {
-  if (event.key === 'Enter') {
-    searchAddress();
-  }
-});
-
 
 // ==================================================
 // 10. GPS
