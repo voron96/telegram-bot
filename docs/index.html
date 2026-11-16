@@ -313,7 +313,9 @@ const menuSearchButton = document.getElementById('menuSearchButton');
 const menuAdminButton = document.getElementById('menuAdminButton');
 const searchPanel = document.getElementById('searchPanel');
   
-menuButton.addEventListener('click', function() {
+menuButton.addEventListener('click', function(event) {
+  event.stopPropagation();
+
   if (searchPanel.style.display === 'block') {
     searchPanel.style.display = 'none';
     mapMenu.style.display = 'flex';
@@ -329,15 +331,30 @@ menuButton.addEventListener('click', function() {
 
   menuButton.textContent = '+';
 });
-menuGpsButton.addEventListener('click', function() {
+
+menuGpsButton.addEventListener('click', function(event) {
+  event.stopPropagation();
+
   clearTemporaryMarker();
-  setMode('view');
+  setMode('home');
 
   mapMenu.style.display = 'none';
   searchPanel.style.display = 'none';
   menuButton.textContent = '+';
 
   gpsButton.click();
+});
+
+menuSearchButton.addEventListener('click', function(event) {
+  event.stopPropagation();
+
+  mapMenu.style.display = 'none';
+  menuButton.textContent = '+';
+  searchPanel.style.display = 'block';
+});
+
+searchPanel.addEventListener('click', function(event) {
+  event.stopPropagation();
 });
   
 // ==================================================
