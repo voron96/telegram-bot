@@ -878,30 +878,30 @@ async def post_init(app):
     asyncio.create_task(daily_scheduler(app))
 
 
-# ----- КНОПКА ПЕРЕГЛЯДУ ВАКАНСІЇ В MINI APP -----
-if map_bot and button_message_id and marker_id:
-    try:
-        app_url = (
-            "https://t.me/PartTimeJobHub_bot_bot"
-            f"?startapp=marker_{marker_id}"
-        )
-
-        keyboard = InlineKeyboardMarkup([[
-            InlineKeyboardButton(
-                "🗺 Переглянути оголошення на карті",
-                url=app_url
+    # ----- КНОПКА ПЕРЕГЛЯДУ ВАКАНСІЇ В MINI APP -----
+    if map_bot and button_message_id and marker_id:
+        try:
+            app_url = (
+                "https://t.me/PartTimeJobHub_bot_bot"
+                f"?startapp=marker_{marker_id}"
             )
-        ]])
 
-        await map_bot.edit_message_reply_markup(
-            chat_id=chat_id,
-            message_id=button_message_id,
-            reply_markup=keyboard
-        )
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton(
+                    "🗺 Переглянути оголошення на карті",
+                    url=app_url
+                )
+            ]])
 
-    except Exception as error:
-        print("MAP BUTTON UPDATE ERROR:", error)
+            await map_bot.edit_message_reply_markup(
+                chat_id=chat_id,
+                message_id=button_message_id,
+                reply_markup=keyboard
+            )
 
+        except Exception as error:
+            print("MAP BUTTON UPDATE ERROR:", error)
+            
 # ================= ЗАПУСК =================
 
 def main():
