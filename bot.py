@@ -893,7 +893,7 @@ if map_bot and button_message_id and marker_id:
             )
         ]])
 
-        await map_bot.edit_message_reply_markup(
+    await map_bot.edit_message_reply_markup(
             chat_id=chat_id,
             message_id=button_message_id,
             reply_markup=keyboard
