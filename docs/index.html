@@ -27,10 +27,9 @@ body {
 
 .header {
   flex: 0 0 auto;
-  padding: 12px;
-  background: #fff;
-  box-shadow: 0 2px 8px #0002;
-  z-index: 1000;
+  padding: 8px 12px;
+  background: transparent;
+  box-shadow: none;
 }
 
 h2 {
@@ -130,7 +129,34 @@ button:disabled {
   text-align: center;
   box-shadow: 0 2px 8px #0004;
 }
+  
+#mapMenu {
+  position: absolute;
+  top: 68px;
+  right: 12px;
+  z-index: 1001;
+  width: 260px;
+  padding: 10px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 3px 15px #0004;
+}
 
+#mapMenu .search {
+  display: flex;
+  gap: 6px;
+}
+
+#mapMenu input {
+  width: 100%;
+  min-width: 0;
+}
+
+#mapMenu #results {
+  max-height: 180px;
+  overflow-y: auto;
+}
+  
 .footer {
   flex: 0 0 auto;
   padding: 10px;
@@ -190,6 +216,20 @@ button:disabled {
 
 <div id="map">
   <button id="menuButton" type="button" aria-label="Відкрити меню">+</button>
+
+  <div id="mapMenu" style="display:none;">
+    <div class="search">
+      <input
+        id="address"
+        type="search"
+        placeholder="Місто, вулиця або адреса"
+        autocomplete="off"
+      >
+      <button id="searchButton" type="button">Знайти</button>
+    </div>
+
+    <div id="results"></div>
+  </div>
 </div>
 
 <div class="footer">
@@ -261,6 +301,18 @@ const saveButton = document.getElementById('saveButton');
 const cancelButton = document.getElementById('cancelButton');
 
 const modeLabel = document.getElementById('modeLabel');
+const menuButton = document.getElementById('menuButton');
+const mapMenu = document.getElementById('mapMenu');
+
+menuButton.addEventListener('click', function() {
+  if (mapMenu.style.display === 'none') {
+    mapMenu.style.display = 'block';
+    menuButton.textContent = '×';
+  } else {
+    mapMenu.style.display = 'none';
+    menuButton.textContent = '+';
+  }
+});
 
 // ==================================================
 // 3. СТАН
