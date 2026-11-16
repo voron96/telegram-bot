@@ -192,8 +192,16 @@ button:disabled {
       📍 Моє місцезнаходження
     </button>
 
-    <button id="homeButton" class="home-button" type="button">
+        <button id="homeButton" class="home-button" type="button">
       🏠 Змінити домашню позначку
+    </button>
+
+    <button
+      id="adminButton"
+      type="button"
+      style="background:#7c3aed; width:100%; margin-top:7px;"
+    >
+      👑 Режим бога
     </button>
   </div>
 
@@ -249,6 +257,7 @@ const statusBox = document.getElementById('status');
 
 const gpsButton = document.getElementById('gpsButton');
 const homeButton = document.getElementById('homeButton');
+const adminButton = document.getElementById('adminButton');
 const saveButton = document.getElementById('saveButton');
 const cancelButton = document.getElementById('cancelButton');
 
@@ -263,6 +272,9 @@ let selectedPlace = null;
 let temporaryMarker = null;
 let homeMarker = null;
 let homeLocation = null;
+let homeLocation = null;
+let adminSelectedMarker = null;
+let adminConfirmBox = null;
 
 // ==================================================
 // 4. ДОПОМІЖНІ ФУНКЦІЇ
@@ -470,7 +482,119 @@ function loadHomeMarker() {
 }
 
 loadHomeMarker();
+// ==================================================
+// ПІДТВЕРДЖЕННЯ ДІЇ АДМІНІСТРАТОРА
+// ==================================================
 
+function showAdminConfirmation(markerId, markerObject) {
+  if (adminConfirmBox) {
+    adminConfirmBox.remove();
+  }
+
+  adminSelectedMarker = {
+    id: markerId,
+    marker: markerObject
+  };
+
+  const box = document.createElement('div');
+
+  box.style.cssText =
+    'position:fixed;' +
+    'left:50%;' +
+    'bottom:90px;' +
+    'transform:translateX(-50%);' +
+    'z-index:3000;' +
+    'display:flex;' +
+    'gap:12px;' +
+    'padding:10px;' +
+    'background:white;' +
+    'border-radius:12px;' +
+    'box-shadow:0 2px 12px #0004;';
+
+  const confirmButton = document.createElement('button');
+  confirmButton.textContent = '✓';
+  confirmButton.style.cssText =
+    'background:#15965c;font-size:24px;width:60px;';
+
+  const cancelButton = document.createElement('button');
+  cancelButton.textContent = '✕';
+  cancelButton.style.cssText =
+    'background:#64748b;font-size:24px;width:60px;';
+
+  confirmButton.addEventListener('click', deleteSelectedAdminMarker);
+
+  cancelButton.addEventListener('click', function() {
+    adminSelectedMarker = null;
+    box.remove();
+    adminConfirmBox = null;
+    setStatus('Видалення скасовано.');
+  });
+
+  box.appendChild(confirmButton);
+  box.appendChild(cancelButton);
+
+  document.body.appendChild(box);
+  adminConfirmBox = box;
+
+  setStatus('Підтвердіть видалення мітки або скасуйте дію.');
+}
+
+// ==================================================
+// ВИДАЛЕННЯ МІТКИ ЧЕРЕЗ СЕРВЕР
+// ==================================================
+
+async function deleteSelectedAdminMarker() {
+  if (!adminSelectedMarker || !adminSession) {
+    setStatus('Спочатку увійдіть у режим бога.');
+    return;
+  }
+
+  if (!tg || !tg.initData) {
+    setStatus('Не вдалося перевірити Telegram.');
+    return;
+  }
+
+  const markerId = adminSelectedMarker.id;
+
+  try {
+    const response = await fetch(
+      MAP_API_URL + '/api/admin/delete-marker',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          initData: tg.initData,
+          session: adminSession,
+          marker_id: markerId
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Не вдалося видалити мітку.');
+    }
+
+    map.removeLayer(adminSelectedMarker.marker);
+
+    adminSelectedMarker = null;
+
+    if (adminConfirmBox) {
+      adminConfirmBox.remove();
+      adminConfirmBox = null;
+    }
+
+    setStatus('Мітку успішно видалено.');
+
+  } catch (error) {
+    console.error('Помилка видалення:', error);
+    setStatus(error.message || 'Помилка видалення мітки.');
+  }
+}
+  
 // ==================================================
 // СПІЛЬНІ ПОЗНАЧКИ ВАКАНСІЙ
 // ==================================================
@@ -543,6 +667,15 @@ async function loadSharedMarkers() {
           Number(marker.longitude)
         ]).addTo(map);
       }
+
+      // Вибір мітки для видалення в режимі бога
+      vacancyMarker.on('click', function() {
+        if (!adminSession) {
+          return;
+        }
+
+        showAdminConfirmation(marker.id, vacancyMarker);
+      });
 
       const vacancyUrl =
         'https://t.me/kiev_part_time_job/' +
@@ -628,7 +761,63 @@ homeButton.addEventListener('click', function() {
     'Стара позначка залишиться до підтвердження нової.'
   );
 });
+  
+// ==================================================
+// ВХІД У РЕЖИМ БОГА
+// ==================================================
 
+adminButton.addEventListener('click', async function() {
+  if (!tg || !tg.initData) {
+    setStatus('Відкрийте карту через Telegram.');
+    return;
+  }
+
+  const password = prompt('Введіть пароль адміністратора:');
+
+  if (password === null || password.length === 0) {
+    setStatus('Вхід скасовано.');
+    return;
+  }
+
+  adminButton.disabled = true;
+  setStatus('Перевіряємо пароль...');
+
+  try {
+    const response = await fetch(
+      MAP_API_URL + '/api/admin/unlock',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          initData: tg.initData,
+          password: password
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Не вдалося увійти.');
+    }
+
+    adminSession = result.session;
+
+    adminButton.textContent = '👑 Режим бога активний';
+    adminButton.style.background = '#15965c';
+
+setStatus(
+  '👑 Режим бога активний. Натисніть на мітку, щоб вибрати її для видалення.'
+);
+  } catch (error) {
+    console.error('Помилка входу:', error);
+    setStatus(error.message || 'Помилка авторизації.');
+  } finally {
+    adminButton.disabled = false;
+  }
+});
 
 // ==================================================
 // 9. ПОШУК АДРЕСИ
