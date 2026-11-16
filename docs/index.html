@@ -319,14 +319,20 @@ const menuAdminButton = document.getElementById('menuAdminButton');
 const searchPanel = document.getElementById('searchPanel');
   
 menuButton.addEventListener('click', function() {
-  if (mapMenu.style.display === 'none') {
+  if (searchPanel.style.display === 'block') {
+    searchPanel.style.display = 'none';
     mapMenu.style.display = 'flex';
-    menuButton.textContent = '×';
-  } else {
-    mapMenu.style.display = 'none';
     menuButton.textContent = '+';
+    return;
   }
-  
+
+  if (mapMenu.style.display === 'flex') {
+    mapMenu.style.display = 'none';
+  } else {
+    mapMenu.style.display = 'flex';
+  }
+
+  menuButton.textContent = '+';
 });
 menuGpsButton.addEventListener('click', function() {
   mapMenu.style.display = 'none';
