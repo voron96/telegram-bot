@@ -326,11 +326,9 @@ menuButton.addEventListener('click', function() {
 
   menuButton.textContent = '+';
 });
-menuGpsButton.addEventListener('click', function(event) {
-  event.stopPropagation();
-
+menuGpsButton.addEventListener('click', function() {
   clearTemporaryMarker();
-  setMode('home');
+  setMode('view');
 
   mapMenu.style.display = 'none';
   searchPanel.style.display = 'none';
