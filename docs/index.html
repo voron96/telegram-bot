@@ -1116,10 +1116,12 @@ cancelButton.addEventListener('click', function() {
 // ==================================================
 
 function initializeTelegramMode() {
-  if (!tg) return;
+  if (!tg) {
+    setStatus('Помилка: Telegram WebApp не знайдено.');
+    return;
+  }
 
   const params = new URLSearchParams(window.location.search);
-
   const requestedMode = params.get('mode');
 
   const startParam =
@@ -1134,7 +1136,12 @@ function initializeTelegramMode() {
     setMode('vacancy');
 
     setStatus(
-      'Виберіть адресу або місце роботи для вакансії.'
+      'Режим вакансії активний. Параметр: ' + startParam
+    );
+  } else {
+    setStatus(
+      'Режим вакансії НЕ активний. Параметр: ' +
+      (startParam || 'НЕ ПЕРЕДАНО')
     );
   }
 }
