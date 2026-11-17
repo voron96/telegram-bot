@@ -139,7 +139,33 @@ async def get_map_markers(request):
         {"markers": markers},
         headers={"Access-Control-Allow-Origin": "*"}
     )
+    
+# ================= ВИДАЛЕННЯ ПРОСТРОЧЕНОЇ КНОПКИ =================
 
+async def expire_map_request(context, request_id, chat_id, button_message_id):
+    await asyncio.sleep(300)
+
+    with sqlite3.connect(MAP_DB) as db:
+        row = db.execute("""
+            SELECT request_id
+            FROM pending_map_requests
+            WHERE request_id = ?
+        """, (request_id,)).fetchone()
+
+        if row:
+            db.execute("""
+                DELETE FROM pending_map_requests
+                WHERE request_id = ?
+            """, (request_id,))
+
+    if row:
+        try:
+            await context.bot.delete_message(
+                chat_id=chat_id,
+                message_id=button_message_id
+            )
+        except Exception as error:
+            print("EXPIRED MAP BUTTON DELETE ERROR:", error)
 
 # ================= КНОПКА ДОДАВАННЯ МІТКИ =================
 
