@@ -1136,7 +1136,6 @@ async def post_init(app):
 
 # ================= ЗАПУСК КАРТИ =================
 
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = InlineKeyboardMarkup([
         [
@@ -1149,15 +1148,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ])
 
-    await update.effective_message.reply_photo(
-        photo=MAP_START_PHOTO_URL,
-        caption=(
-            "📍 Переглядайте карту підробітків Києва та області:\n"
-            + MAP_WEBAPP_URL
-        ),
-        reply_markup=keyboard,
-        disable_notification=True
+    photo_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "docs",
+        "map-start.png"
     )
+
+    with open(photo_path, "rb") as photo:
+        await update.effective_message.reply_photo(
+            photo=photo,
+            caption=(
+                "📍 Переглядайте карту підробітків Києва та області:\n"
+                + MAP_WEBAPP_URL
+            ),
+            reply_markup=keyboard,
+            disable_notification=True
+        )
 
 # ================= ЗАПУСК =================
 
