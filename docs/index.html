@@ -1119,7 +1119,6 @@ function initializeTelegramMode() {
   if (!tg) return;
 
   const params = new URLSearchParams(window.location.search);
-
   const requestedMode = params.get('mode');
 
   const startParam =
@@ -1133,13 +1132,21 @@ function initializeTelegramMode() {
   ) {
     setMode('vacancy');
 
-    setStatus(
-      'Виберіть адресу або місце роботи для вакансії.'
+    mapMenu.style.display = 'none';
+    searchPanel.style.display = 'block';
+    menuButton.textContent = '+';
+
+    const center = map.getCenter();
+
+    choosePlace(
+      center.lat,
+      center.lng,
+      'Оберіть точне місце вакансії'
     );
+
+    setStatus('Введіть адресу вакансії в пошук.');
   }
 }
-
-initializeTelegramMode();
 
 // ==================================================
 // 14. ОСТАТОЧНЕ НАЛАШТУВАННЯ РОЗМІРУ
