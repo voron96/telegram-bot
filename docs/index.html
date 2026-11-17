@@ -1141,6 +1141,8 @@ function initializeTelegramMode() {
   if (requestedMode === 'vacancy' || requestId) {
     setMode('vacancy');
 
+    searchPanel.style.display = 'block';
+
     setStatus('Режим вакансії активний. Можна встановити мітку.');
   } else {
     setStatus(
