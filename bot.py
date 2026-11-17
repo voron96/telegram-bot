@@ -1142,10 +1142,11 @@ def map_announcement_keyboard():
         [
             InlineKeyboardButton(
                 "🗺 ВІДКРИТИ КАРТУ",
-                url=MAP_WEBAPP_URL
+                url="https://t.me/PartTimeJobHub_bot_bot?startapp"
             )
         ]
     ])
+
 
 
 def map_announcement_caption():
@@ -1193,28 +1194,18 @@ async def publish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         await send_map_announcement(context.bot, CHANNEL_ID)
+
         await update.effective_message.reply_text(
             "✅ Оголошення опубліковано в каналі.",
             disable_notification=True
         )
+
     except Exception as e:
         print(f"ПОМИЛКА ПУБЛІКАЦІЇ В КАНАЛ: {repr(e)}")
         await update.effective_message.reply_text(
             f"❌ Помилка публікації в канал: {e}"
         )
-        return
 
-    try:
-        await send_map_announcement(context.bot, CHAT_ID)
-        await update.effective_message.reply_text(
-            "✅ Оголошення опубліковано в групі.",
-            disable_notification=True
-        )
-    except Exception as e:
-        print(f"ПОМИЛКА ПУБЛІКАЦІЇ В ГРУПУ: {repr(e)}")
-        await update.effective_message.reply_text(
-            f"❌ Помилка публікації в групу: {e}"
-        )
 
 # ================= КІНЕЦЬ ПУБЛІКАЦІЇ =================
 
