@@ -891,25 +891,24 @@ async function searchAddress() {
       button.textContent = item.label;
 
       button.addEventListener('click', function() {
-        map.setView([item.lat, item.lon], 16);
+        choosePlace(item.lat, item.lon, item.label);
+
         resultsBox.style.display = 'none';
         resultsBox.innerHTML = '';
-        setStatus('Знайдено адресу: ' + item.label);
       });
 
       resultsBox.appendChild(button);
     });
 
     if (found.length === 1) {
-      map.setView([found[0].lat, found[0].lon], 16);
-      setStatus('Знайдено адресу: ' + found[0].label);
+      choosePlace(
+        found[0].lat,
+        found[0].lon,
+        found[0].label
+      );
     } else {
       resultsBox.style.display = 'block';
-
-      setStatus(
-        'Знайдено адрес: ' + found.length +
-        '. Виберіть потрібний варіант.'
-      );
+      setStatus('Знайдено адрес: ' + found.length + '. Виберіть потрібний варіант.');
     }
 
   } catch (error) {
