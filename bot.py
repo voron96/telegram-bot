@@ -1134,33 +1134,50 @@ async def post_init(app):
 
     asyncio.create_task(daily_scheduler(app))
 
-# ================= ЗАПУСК КАРТИ =================
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = InlineKeyboardMarkup([
+# ================= ОГОЛОШЕННЯ КАРТИ =================
+
+def map_announcement_keyboard():
+    return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
                 "🗺 ВІДКРИТИ КАРТУ",
-                web_app=WebAppInfo(
-                    url=MAP_WEBAPP_URL
-                )
+                web_app=WebAppInfo(url=MAP_WEBAPP_URL)
             )
         ]
     ])
 
-    photo_path = os.path.join(
+
+def map_announcement_caption():
+    return "Карта підробітків м.Києва"
+
+
+def map_announcement_photo_path():
+    return os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
         "docs",
         "map-start.png"
     )
 
-    with open(photo_path, "rb") as photo:
-        await update.effective_message.reply_photo(
+
+async def send_map_announcement(bot, chat_id):
+    with open(map_announcement_photo_path(), "rb") as photo:
+        return await bot.send_photo(
+            chat_id=chat_id,
             photo=photo,
-            caption="Карта підробітків м.Києва",
-            reply_markup=keyboard,
+            caption=map_announcement_caption(),
+            reply_markup=map_announcement_keyboard(),
             disable_notification=True
         )
+
+
+# ================= ЗАПУСК КАРТИ =================
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await send_map_announcement(
+        context.bot,
+        update.effective_chat.id
+    )
 
 # ================= ЗАПУСК =================
 
