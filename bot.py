@@ -178,7 +178,7 @@ async def add_pin_button(update, context):
         keyboard = InlineKeyboardMarkup([[
             InlineKeyboardButton(
                 "📍 Розмістити оголошення на карті",
-                url=app_url
+                callback_data=f"map:{request_id}"
             )
         ]])
 
