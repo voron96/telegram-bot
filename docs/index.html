@@ -1122,26 +1122,29 @@ function initializeTelegramMode() {
   }
 
   const params = new URLSearchParams(window.location.search);
+
   const requestedMode = params.get('mode');
 
   const startParam =
-    tg.initDataUnsafe && tg.initDataUnsafe.start_param
-      ? tg.initDataUnsafe.start_param
-      : '';
+    (tg.initDataUnsafe && tg.initDataUnsafe.start_param) ||
+    params.get('startapp') ||
+    '';
 
-  if (
-    requestedMode === 'vacancy' ||
-    (startParam && !startParam.startsWith('marker_'))
-  ) {
+  const requestId =
+    params.get('request_id') ||
+    (
+      startParam && !startParam.startsWith('marker_')
+        ? startParam
+        : ''
+    );
+
+  if (requestedMode === 'vacancy' || requestId) {
     setMode('vacancy');
 
-    setStatus(
-      'Режим вакансії активний. Параметр: ' + startParam
-    );
+    setStatus('Режим вакансії активний. Можна встановити мітку.');
   } else {
     setStatus(
-      'Режим вакансії НЕ активний. Параметр: ' +
-      (startParam || 'НЕ ПЕРЕДАНО')
+      'Режим вакансії не активний. Параметр не передано.'
     );
   }
 }
