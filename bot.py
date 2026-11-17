@@ -49,7 +49,7 @@ daily_message_id = None
 MAP_DB = "/data/markers.db"
 MAP_PORT = int(os.getenv("PORT", "8080"))
 MAP_WEBAPP_URL = "https://voron96.github.io/telegram-bot/"
-MAP_START_PHOTO_URL = "https://voron96.github.io/telegram-bot/map-start.jpg"
+MAP_START_PHOTO_URL = "https://voron96.github.io/telegram-bot/map-start.png"
 
 def init_map_db():
     os.makedirs("/data", exist_ok=True)
