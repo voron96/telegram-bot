@@ -1142,7 +1142,7 @@ def map_announcement_keyboard():
         [
             InlineKeyboardButton(
                 "🗺 ВІДКРИТИ КАРТУ",
-                web_app=WebAppInfo(url=MAP_WEBAPP_URL)
+                url=MAP_WEBAPP_URL
             )
         ]
     ])
