@@ -1140,7 +1140,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "🗺 КАРТА ПІДРОБІТКІВ КИЄВА ТА ОБЛАСТІ",
+                "🗺 ВІДКРИТИ КАРТУ",
                 web_app=WebAppInfo(
                     url=MAP_WEBAPP_URL
                 )
@@ -1157,10 +1157,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open(photo_path, "rb") as photo:
         await update.effective_message.reply_photo(
             photo=photo,
-            caption=(
-                "📍 Переглядайте карту підробітків Києва та області:\n"
-                + MAP_WEBAPP_URL
-            ),
+            caption="Карта підробітків м.Києва",
             reply_markup=keyboard,
             disable_notification=True
         )
