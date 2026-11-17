@@ -1179,6 +1179,34 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update.effective_chat.id
     )
 
+# ================= ПУБЛІКАЦІЯ ОГОЛОШЕННЯ =================
+
+async def publish(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    owner_id = int(os.getenv("MAP_ADMIN_USER_ID", "0"))
+
+    if update.effective_chat.type != "private":
+        return
+
+    if not update.effective_user or update.effective_user.id != owner_id:
+        return
+
+    try:
+        await send_map_announcement(context.bot, CHANNEL_ID)
+        await send_map_announcement(context.bot, CHAT_ID)
+
+        await update.effective_message.reply_text(
+            "✅ Оголошення опубліковано в каналі та групі.",
+            disable_notification=True
+        )
+
+    except Exception as e:
+        print(f"Помилка публікації оголошення: {e}")
+        await update.effective_message.reply_text(
+            "❌ Не вдалося опублікувати оголошення. Перевір журнал Railway."
+        )
+
+# ================= КІНЕЦЬ ПУБЛІКАЦІЇ =================
+
 # ================= ЗАПУСК =================
 
 def main():
@@ -1199,8 +1227,12 @@ def main():
     )
 
     app.add_handler(
-        CommandHandler("start", start)
+    CommandHandler("start", start)
     )
+    
+    app.add_handler(
+    CommandHandler("publish", publish)
+)
 
     app.add_handler(
         CallbackQueryHandler(
