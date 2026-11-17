@@ -49,6 +49,7 @@ daily_message_id = None
 MAP_DB = "/data/markers.db"
 MAP_PORT = int(os.getenv("PORT", "8080"))
 MAP_WEBAPP_URL = "https://voron96.github.io/telegram-bot/"
+MAP_START_PHOTO_URL = "https://voron96.github.io/telegram-bot/map-start.jpg"
 
 def init_map_db():
     os.makedirs("/data", exist_ok=True)
@@ -1135,22 +1136,25 @@ async def post_init(app):
 
 # ================= ЗАПУСК КАРТИ =================
 
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "🗺️ Відкрити карту підробітків",
+                "🗺 КАРТА ПІДРОБІТКІВ КИЄВА ТА ОБЛАСТІ",
                 web_app=WebAppInfo(
-                    url="https://voron96.github.io/telegram-bot/"
+                    url=MAP_WEBAPP_URL
                 )
             )
         ]
     ])
 
-    await update.effective_message.reply_text(
-        "👋 Вітаємо!\n\n"
-        "Відкривайте карту підробітків Києва та області "
-        "і переглядайте доступні вакансії 🗺️",
+    await update.effective_message.reply_photo(
+        photo=MAP_START_PHOTO_URL,
+        caption=(
+            "📍 Переглядайте карту підробітків Києва та області:\n"
+            + MAP_WEBAPP_URL
+        ),
         reply_markup=keyboard,
         disable_notification=True
     )
