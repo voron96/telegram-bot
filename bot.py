@@ -1238,9 +1238,9 @@ async def post_init(app):
 
     map_runner = await start_map_server()
 
-    asyncio.create_task(daily_scheduler(app))
-    asyncio.create_task(expire_vacancy_buttons(app))
-    asyncio.create_task(cleanup_expired_map_requests(app))
+    create_background_task(daily_scheduler(app))
+    create_background_task(expire_vacancy_buttons(app))
+    create_background_task(cleanup_expired_map_requests(app))
 
 # ================= ОГОЛОШЕННЯ КАРТИ =================
 
