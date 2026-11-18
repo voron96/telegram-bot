@@ -231,6 +231,15 @@ async def add_pin_button(update, context):
                 sent.message_id
             ))
 
+        asyncio.create_task(
+            expire_map_request(
+                context,
+                request_id,
+                msg.chat_id,
+                sent.message_id
+            )
+        )
+
     except Exception as error:
         print("MAP BUTTON ERROR:", error)
 
