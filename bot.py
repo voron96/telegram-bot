@@ -1255,9 +1255,8 @@ def map_announcement_keyboard():
     ])
 
 
-
 def map_announcement_caption():
-    return "Карта підробітків м.Києва"
+    return None
 
 
 def map_announcement_photo_path():
@@ -1277,7 +1276,6 @@ async def send_map_announcement(bot, chat_id):
             reply_markup=map_announcement_keyboard(),
             disable_notification=True
         )
-
 
 # ================= ЗАПУСК КАРТИ =================
 
