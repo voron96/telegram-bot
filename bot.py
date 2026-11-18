@@ -1131,7 +1131,43 @@ async def post_shutdown(app):
 
     print("MAP SERVER STOPPED ✅")
 
+# ================= АВТОМАТИЧНЕ ПРИБИРАННЯ КНОПОК ЧЕРЕЗ 8 ГОДИН =================
 
+async def expire_vacancy_buttons(app):
+    while True:
+        try:
+            now = datetime.utcnow().isoformat()
+
+            with sqlite3.connect(MAP_DB) as db:
+                rows = db.execute("""
+                    SELECT id, chat_id, button_message_id
+                    FROM vacancy_markers
+                    WHERE expires_at <= ?
+                    AND button_message_id IS NOT NULL
+                """, (now,)).fetchall()
+
+            for marker_id, chat_id, button_message_id in rows:
+                try:
+                    await app.bot.edit_message_reply_markup(
+                        chat_id=chat_id,
+                        message_id=button_message_id,
+                        reply_markup=None
+                    )
+                except Exception as error:
+                    print("EXPIRED VACANCY BUTTON ERROR:", error)
+
+                with sqlite3.connect(MAP_DB) as db:
+                    db.execute("""
+                        UPDATE vacancy_markers
+                        SET button_message_id = NULL
+                        WHERE id = ?
+                    """, (marker_id,))
+
+        except Exception as error:
+            print("VACANCY BUTTON CLEANUP ERROR:", error)
+
+        await asyncio.sleep(60)
+        
 async def post_init(app):
     global map_runner, map_bot
 
@@ -1142,7 +1178,7 @@ async def post_init(app):
     map_runner = await start_map_server()
 
     asyncio.create_task(daily_scheduler(app))
-
+    asyncio.create_task(expire_vacancy_buttons(app))
 
 # ================= ОГОЛОШЕННЯ КАРТИ =================
 
