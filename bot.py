@@ -168,6 +168,39 @@ async def expire_map_request(context, request_id, chat_id, button_message_id):
         except Exception as error:
             print("EXPIRED MAP BUTTON DELETE ERROR:", error)
 
+async def cleanup_expired_map_requests(app):
+    while True:
+        try:
+            now = datetime.utcnow().isoformat()
+
+            with sqlite3.connect(MAP_DB) as db:
+                rows = db.execute("""
+                    SELECT request_id, chat_id, button_message_id
+                    FROM pending_map_requests
+                    WHERE expires_at <= ?
+                """, (now,)).fetchall()
+
+            for request_id, chat_id, button_message_id in rows:
+                if button_message_id:
+                    try:
+                        await app.bot.delete_message(
+                            chat_id=chat_id,
+                            message_id=button_message_id
+                        )
+                    except Exception as error:
+                        print("EXPIRED MAP BUTTON CLEANUP ERROR:", error)
+
+                with sqlite3.connect(MAP_DB) as db:
+                    db.execute("""
+                        DELETE FROM pending_map_requests
+                        WHERE request_id = ?
+                    """, (request_id,))
+
+        except Exception as error:
+            print("PENDING MAP REQUEST CLEANUP ERROR:", error)
+
+        await asyncio.sleep(30)
+
 # ================= КНОПКА ДОДАВАННЯ МІТКИ =================
 
 async def add_pin_button(update, context):
@@ -1166,8 +1199,8 @@ async def expire_vacancy_buttons(app):
         except Exception as error:
             print("VACANCY BUTTON CLEANUP ERROR:", error)
 
-        await asyncio.sleep(60)
-        
+        await asyncio.sleep(60)     
+
 async def post_init(app):
     global map_runner, map_bot
 
@@ -1179,6 +1212,7 @@ async def post_init(app):
 
     asyncio.create_task(daily_scheduler(app))
     asyncio.create_task(expire_vacancy_buttons(app))
+    asyncio.create_task(cleanup_expired_map_requests(app))
 
 # ================= ОГОЛОШЕННЯ КАРТИ =================
 
