@@ -858,18 +858,16 @@ async function searchAddress() {
   resultsBox.innerHTML = '';
 
   try {
-    async function searchIn(place) {
-      setStatus('Шукаємо адресу: ' + place + '...');
+    async function searchIn(searchQuery) {
+      setStatus('Шукаємо адресу: ' + searchQuery + '...');
 
       const params = new URLSearchParams({
-        q: query + ', ' + place + ', Україна',
+        q: searchQuery,
         format: 'jsonv2',
         addressdetails: '1',
-        limit: '10',
+        limit: '15',
         countrycodes: 'ua',
-        'accept-language': 'uk',
-        viewbox: '29.15,51.85,32.25,49.15',
-        bounded: '1'
+        'accept-language': 'uk'
       });
 
       const response = await fetch(
@@ -896,10 +894,14 @@ async function searchAddress() {
         });
     }
 
-    let found = await searchIn('Київ');
+    let found = await searchIn(query + ', Київ, Україна');
 
     if (!found.length) {
-      found = await searchIn('Київська область');
+      found = await searchIn(query + ', Київська область, Україна');
+    }
+
+    if (!found.length) {
+      found = await searchIn(query + ', Україна');
     }
 
     if (!found.length) {
@@ -934,7 +936,10 @@ async function searchAddress() {
       );
     } else {
       resultsBox.style.display = 'block';
-      setStatus('Знайдено адрес: ' + found.length + '. Виберіть потрібний варіант.');
+      setStatus(
+        'Знайдено адрес: ' + found.length +
+        '. Виберіть потрібний варіант.'
+      );
     }
 
   } catch (error) {
@@ -948,14 +953,6 @@ async function searchAddress() {
     searchButton.disabled = false;
   }
 }
-  
-  searchButton.addEventListener('click', searchAddress);
-
-addressInput.addEventListener('keydown', function(event) {
-  if (event.key === 'Enter') {
-    searchAddress();
-  }
-});
   
 // ==================================================
 // 10. GPS
