@@ -954,6 +954,14 @@ async function searchAddress() {
   }
 }
   
+searchButton.addEventListener('click', searchAddress);
+
+addressInput.addEventListener('keydown', function(event) {
+  if (event.key === 'Enter') {
+    searchAddress();
+  }
+});
+
 // ==================================================
 // 10. GPS
 // ==================================================
