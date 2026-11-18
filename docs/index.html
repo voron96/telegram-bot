@@ -428,7 +428,30 @@ function clearTemporaryMarker() {
 
   selectedPlace = null;
 }
-
+  
+// ІКОНКА ОСОБИСТОЇ ДОМАШНЬОЇ ПОЗНАЧКИ
+function createHomeIcon() {
+  return L.divIcon({
+    className: '',
+    html: `
+      <div style="
+        width:42px;
+        height:42px;
+        background:white;
+        border:2px solid #16a34a;
+        border-radius:50%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:27px;
+        box-shadow:0 2px 6px #0005;
+      ">🏠</div>
+    `,
+    iconSize: [42, 42],
+    iconAnchor: [21, 21]
+  });
+}
+  
 // ==================================================
 // 5. СТВОРЕННЯ КАРТИ
 // ==================================================
@@ -642,7 +665,9 @@ function loadHomeMarker() {
     homeMarker = L.marker([
       homeLocation.lat,
       homeLocation.lon
-    ]).addTo(map);
+    ], {
+      icon: createHomeIcon()
+    }).addTo(map);
 
     homeMarker.bindPopup(
       '<b>🏠 Моя домашня позначка</b><br>' +
