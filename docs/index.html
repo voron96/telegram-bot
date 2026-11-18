@@ -1009,7 +1009,6 @@ gpsButton.addEventListener('click', function() {
   );
 });
 
-
 saveButton.addEventListener('click', async function() {
   if (!selectedPlace) {
     setStatus('Спочатку виберіть місце на карті.');
@@ -1039,7 +1038,9 @@ saveButton.addEventListener('click', async function() {
     homeMarker = L.marker([
       data.lat,
       data.lon
-    ]).addTo(map);
+    ], {
+      icon: createHomeIcon()
+    }).addTo(map);
 
     homeMarker.bindPopup(
       '<b>🏠 Моя домашня позначка</b><br>' +
@@ -1055,7 +1056,7 @@ saveButton.addEventListener('click', async function() {
 
     return;
   }
-
+  
   if (mode === 'vacancy') {
     if (!tg) {
       setStatus('Відкрийте карту через Telegram.');
