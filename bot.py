@@ -1145,22 +1145,50 @@ async def daily_scheduler(app):
 
 
 map_runner = None
-
-async def post_shutdown(app):
-    global map_runner
-
-    if map_runner:
-        await map_runner.cleanup()
-        map_runner = None
 map_bot = None
 
+background_tasks = set()
+
+
+def create_background_task(coro):
+    task = asyncio.create_task(coro)
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.discard)
+    return task
+
+
+async def post_init(app):
+    global map_runner, map_bot
+
+    await app.bot.delete_webhook(drop_pending_updates=True)
+
+    map_bot = app.bot
+
+    map_runner = await start_map_server()
+
+    create_background_task(daily_scheduler(app))
+    create_background_task(expire_vacancy_buttons(app))
+    create_background_task(cleanup_expired_map_requests(app))
 
 async def post_shutdown(app):
-    global map_runner
+    global map_runner, map_bot
+
+    for task in list(background_tasks):
+        task.cancel()
+
+    if background_tasks:
+        await asyncio.gather(
+            *background_tasks,
+            return_exceptions=True
+        )
+
+    background_tasks.clear()
 
     if map_runner:
         await map_runner.cleanup()
         map_runner = None
+
+    map_bot = None
 
     print("MAP SERVER STOPPED ✅")
 
