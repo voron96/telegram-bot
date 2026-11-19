@@ -667,7 +667,29 @@ async def map_cors_middleware(request, handler):
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return response
 
+# ================= API СПІЛЬНОЇ КАРТИ =================
 
+async def get_map_markers(request):
+    now = datetime.utcnow().isoformat()
+
+    with sqlite3.connect(MAP_DB) as db:
+        db.row_factory = sqlite3.Row
+
+        rows = db.execute("""
+            SELECT id, text, latitude, longitude, label,
+                   message_id, created_at, expires_at, is_closed
+            FROM vacancy_markers
+            WHERE expires_at > ?
+            ORDER BY created_at DESC
+        """, (now,)).fetchall()
+
+    markers = [dict(row) for row in rows]
+
+    return web.json_response(
+        {"markers": markers},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
+    
 async def start_map_server():
     init_map_db()
 
