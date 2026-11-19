@@ -1465,11 +1465,11 @@ def main():
     )
     
     app.add_handler(
-    CommandHandler("розмістити", rozmistyty)
+    CommandHandler("post", rozmistyty)
     )
 
     app.add_handler(
-    CommandHandler("скасувати", cancel_publication)
+    CommandHandler("cancel", cancel_publication)
     )
 
     app.add_handler(
