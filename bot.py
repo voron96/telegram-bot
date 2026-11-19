@@ -1582,14 +1582,12 @@ async def chat_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "❌ Не вдалося закрити групу. Перевір права бота адміністратора."
         )
 
-
 async def chat_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
 
     if (
         update.effective_chat.type != "private"
         or not user
-        or user.id != OWNER_ID
         or user.id not in admin_sessions
     ):
         return
@@ -1608,6 +1606,9 @@ async def chat_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         saved_permissions = json.loads(saved[0])
+
+        # Видаляємо застарілий параметр, який не підтримує бібліотека
+        saved_permissions.pop("can_send_media_messages", None)
 
         await context.bot.set_chat_permissions(
             chat_id=CHAT_ID,
