@@ -26,11 +26,14 @@ from urllib.parse import parse_qsl
 from aiohttp import web
 from datetime import datetime, timedelta
 
+
 # ================= НАЛАШТУВАННЯ =================
+
 TOKEN = os.getenv("BOT_TOKEN")
 
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN не знайдено в Railway Variables")
+
 CHAT_ID = -1002190311306  # ID твоєї групи
 
 CHANNEL_ID = -1002375622983  # ID офіційного каналу
@@ -43,6 +46,14 @@ KIEV_OFFSET = timedelta(hours=3)
 
 warn_short_text = set()
 daily_message_id = None
+
+
+# ================= СПІЛЬНА КАРТА =================
+
+MAP_DB = "/data/markers.db"
+MAP_PORT = int(os.getenv("PORT", "8080"))
+MAP_WEBAPP_URL = "https://voron96.github.io/telegram-bot/"
+MAP_START_PHOTO_URL = "https://voron96.github.io/telegram-bot/map-start.png"
 
 
 def init_map_db():
