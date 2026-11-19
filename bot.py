@@ -14,6 +14,7 @@ from telegram.ext import (
     filters,
 )
 import os
+import html
 import regex as re
 import asyncio
 import sqlite3
@@ -1284,9 +1285,135 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         update.effective_chat.id
     )
+    
 
+# ================= КЕРУВАННЯ ПУБЛІКАЦІЯМИ =================
+
+OWNER_ID = int(os.getenv("MAP_ADMIN_USER_ID", "0"))
+
+
+async def rozmistyty(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if (
+        update.effective_chat.type != "private"
+        or not update.effective_user
+        or update.effective_user.id != OWNER_ID
+    ):
+        return
+
+    context.user_data["waiting_for_publication"] = True
+
+    await update.effective_message.reply_text(
+        "📝 Надішли текст публікації.\n\n"
+        "Для кнопки карти напиши окремим рядком:\n"
+        "/кнопка/\n\n"
+        "Для клікабельного посилання напиши:\n"
+        "Назва посилання /посилання https://адреса/\n\n"
+        "Скасувати можна командою /скасувати."
+    )
+
+
+async def cancel_publication(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if (
+        update.effective_chat.type != "private"
+        or not update.effective_user
+        or update.effective_user.id != OWNER_ID
+    ):
+        return
+
+    context.user_data["waiting_for_publication"] = False
+
+    await update.effective_message.reply_text(
+        "Створення публікації скасовано."
+    )
+
+
+async def receive_publication(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if (
+        update.effective_chat.type != "private"
+        or not update.effective_user
+        or update.effective_user.id != OWNER_ID
+        or not context.user_data.get("waiting_for_publication")
+    ):
+        return
+
+    raw_text = update.effective_message.text.strip()
+
+    if not raw_text:
+        return
+
+    if len(raw_text) > 4096:
+        await update.effective_message.reply_text(
+            "❌ Текст задовгий. Максимум — 4096 символів."
+        )
+        return
+
+    lines = raw_text.splitlines()
+    result_lines = []
+    buttons = []
+
+    for line in lines:
+        if line.strip() == "/кнопка/":
+            buttons.append(
+                InlineKeyboardButton(
+                    "🗺 КАРТА",
+                    url="https://t.me/PartTimeJobHub_bot_bot?startapp"
+                )
+            )
+            continue
+
+        match = re.match(
+            r"^(.*?)\s*/посилання\s+(https?://\S+?)/\s*$",
+            line.strip(),
+            re.IGNORECASE
+        )
+
+        if match:
+            link_text = match.group(1).strip()
+            link_url = match.group(2).strip()
+
+            if link_text and link_url:
+                result_lines.append(
+                    f'<a href="{html.escape(link_url, quote=True)}">'
+                    f'{html.escape(link_text)}</a>'
+                )
+                continue
+
+        result_lines.append(html.escape(line))
+
+    final_text = "\n".join(result_lines).strip()
+
+    if not final_text:
+        await update.effective_message.reply_text(
+            "❌ Додай текст публікації."
+        )
+        return
+
+    keyboard = InlineKeyboardMarkup([buttons]) if buttons else None
+
+    try:
+        await context.bot.send_message(
+            chat_id=CHAT_ID,
+            text=final_text,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+            disable_notification=True,
+            disable_web_page_preview=True
+        )
+
+        context.user_data["waiting_for_publication"] = False
+
+        await update.effective_message.reply_text(
+            "✅ Публікацію розміщено в групі."
+        )
+
+    except Exception as error:
+        print("PUBLICATION ERROR:", repr(error))
+
+        await update.effective_message.reply_text(
+            "❌ Не вдалося опублікувати. Перевір текст і посилання."
+        )
+        
 # ================= ПУБЛІКАЦІЯ ОГОЛОШЕННЯ =================
-
 
 async def publish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     owner_id = int(os.getenv("MAP_ADMIN_USER_ID", "0"))
@@ -1338,8 +1465,24 @@ def main():
     )
     
     app.add_handler(
+    CommandHandler("розмістити", rozmistyty)
+    )
+
+    app.add_handler(
+    CommandHandler("скасувати", cancel_publication)
+    )
+
+    app.add_handler(
+    MessageHandler(
+        filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
+        receive_publication
+    ),
+    group=-2
+    )
+
+    app.add_handler(
     CommandHandler("publish", publish)
-)
+    )
 
     app.add_handler(
         CallbackQueryHandler(
