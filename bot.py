@@ -13,6 +13,7 @@ from telegram.ext import (
     CallbackQueryHandler,
     filters,
 )
+import inspect
 import os
 import html
 import regex as re
@@ -1607,8 +1608,16 @@ async def chat_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         saved_permissions = json.loads(saved[0])
 
-        # Видаляємо застарілий параметр, який не підтримує бібліотека
-        saved_permissions.pop("can_send_media_messages", None)
+        # Залишаємо тільки параметри, які підтримує поточна бібліотека
+        supported_permissions = set(
+            inspect.signature(ChatPermissions).parameters.keys()
+        )
+
+        saved_permissions = {
+            key: value
+            for key, value in saved_permissions.items()
+            if key in supported_permissions
+        }
 
         await context.bot.set_chat_permissions(
             chat_id=CHAT_ID,
