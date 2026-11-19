@@ -45,13 +45,6 @@ warn_short_text = set()
 daily_message_id = None
 
 
-# ================= СПІЛЬНА КАРТА =================
-
-MAP_DB = "/data/markers.db"
-MAP_PORT = int(os.getenv("PORT", "8080"))
-MAP_WEBAPP_URL = "https://voron96.github.io/telegram-bot/"
-MAP_START_PHOTO_URL = "https://voron96.github.io/telegram-bot/map-start.png"
-
 def init_map_db():
     os.makedirs("/data", exist_ok=True)
 
@@ -82,6 +75,13 @@ def init_map_db():
                 text TEXT NOT NULL,
                 expires_at TEXT NOT NULL,
                 button_message_id INTEGER
+            )
+        """)
+
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS chat_permissions (
+                chat_id INTEGER PRIMARY KEY,
+                permissions_json TEXT NOT NULL
             )
         """)
 
@@ -118,29 +118,6 @@ def init_map_db():
             """)
 
     print("MAP DATABASE READY ✅")
-
-# ================= API СПІЛЬНОЇ КАРТИ =================
-
-async def get_map_markers(request):
-    now = datetime.utcnow().isoformat()
-
-    with sqlite3.connect(MAP_DB) as db:
-        db.row_factory = sqlite3.Row
-
-        rows = db.execute("""
-            SELECT id, text, latitude, longitude, label,
-                   message_id, created_at, expires_at, is_closed
-            FROM vacancy_markers
-            WHERE expires_at > ?
-            ORDER BY created_at DESC
-        """, (now,)).fetchall()
-
-    markers = [dict(row) for row in rows]
-
-    return web.json_response(
-        {"markers": markers},
-        headers={"Access-Control-Allow-Origin": "*"}
-    )
     
 # ================= ВИДАЛЕННЯ ПРОСТРОЧЕНОЇ КНОПКИ =================
 
@@ -1286,10 +1263,85 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update.effective_chat.id
     )
     
-
 # ================= КЕРУВАННЯ ПУБЛІКАЦІЯМИ =================
 
 OWNER_ID = int(os.getenv("MAP_ADMIN_USER_ID", "0"))
+
+# ================= АВТОРИЗАЦІЯ ЧЕРЕЗ TELEGRAM =================
+
+async def admin_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != "private":
+        return
+
+    if not update.effective_user or update.effective_user.id != OWNER_ID:
+        return
+
+    admin_sessions.discard(update.effective_user.id)
+    admin_password_wait.add(update.effective_user.id)
+
+    await update.effective_message.reply_text(
+        "🔐 Введіть пароль адміністратора:"
+    )
+
+
+async def check_admin_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    message = update.effective_message
+
+    if not user or user.id != OWNER_ID:
+        return
+
+    if update.effective_chat.type != "private":
+        return
+
+    if user.id not in admin_password_wait:
+        return
+
+    entered_password = message.text.strip()
+    admin_password_wait.discard(user.id)
+
+    context.user_data["skip_publication_message_id"] = message.message_id
+
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+    saved_password = os.getenv("MAP_ADMIN_PASSWORD", "")
+
+    if not saved_password:
+        await context.bot.send_message(
+            chat_id=user.id,
+            text="❌ Пароль адміністратора не налаштований."
+        )
+        return
+
+    if not hmac.compare_digest(entered_password, saved_password):
+        await context.bot.send_message(
+            chat_id=user.id,
+            text="❌ Неправильний пароль."
+        )
+        return
+
+    admin_sessions.add(user.id)
+
+    await context.bot.send_message(
+        chat_id=user.id,
+        text=(
+            "✅ Авторизація успішна!\n\n"
+            "Доступні команди:\n\n"
+            "/post — створити публікацію\n"
+            "/cancel — скасувати створення публікації\n"
+            "/publish — опублікувати оголошення в каналі\n"
+            "/chat_off — закрити групу для публікацій\n"
+            "/chat_on — відкрити групу для публікацій"
+        )
+    )
+    
+# ================= АВТОРИЗАЦІЯ АДМІНІСТРАТОРА =================
+
+admin_sessions = set()
+admin_password_wait = set()
 
 
 async def rozmistyty(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1300,6 +1352,9 @@ async def rozmistyty(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ):
         return
 
+    if update.effective_user.id not in admin_sessions:
+        return
+
     context.user_data["waiting_for_publication"] = True
 
     await update.effective_message.reply_text(
@@ -1308,9 +1363,8 @@ async def rozmistyty(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/кнопка/\n\n"
         "Для клікабельного посилання напиши:\n"
         "Назва посилання /посилання https://адреса/\n\n"
-        "Скасувати можна командою /скасувати."
+        "Скасувати можна командою /cancel."
     )
-
 
 async def cancel_publication(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if (
@@ -1320,18 +1374,30 @@ async def cancel_publication(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ):
         return
 
+    if update.effective_user.id not in admin_sessions:
+        return
+
     context.user_data["waiting_for_publication"] = False
+    admin_sessions.discard(update.effective_user.id)
 
     await update.effective_message.reply_text(
         "Створення публікації скасовано."
     )
 
-
 async def receive_publication(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if (
+        update.effective_message
+        and context.user_data.get("skip_publication_message_id")
+        == update.effective_message.message_id
+    ):
+        context.user_data.pop("skip_publication_message_id", None)
+        return
+
     if (
         update.effective_chat.type != "private"
         or not update.effective_user
         or update.effective_user.id != OWNER_ID
+        or update.effective_user.id not in admin_sessions
         or not context.user_data.get("waiting_for_publication")
     ):
         return
@@ -1401,6 +1467,7 @@ async def receive_publication(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
 
         context.user_data["waiting_for_publication"] = False
+        admin_sessions.discard(update.effective_user.id)
 
         await update.effective_message.reply_text(
             "✅ Публікацію розміщено в групі."
@@ -1412,20 +1479,148 @@ async def receive_publication(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.effective_message.reply_text(
             "❌ Не вдалося опублікувати. Перевір текст і посилання."
         )
-        
+
+    # ================= ЗАКРИТТЯ ТА ВІДКРИТТЯ ГРУПИ =================
+
+async def chat_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+
+    if (
+        update.effective_chat.type != "private"
+        or not user
+        or user.id != OWNER_ID
+        or user.id not in admin_sessions
+    ):
+        return
+
+    try:
+        chat = await context.bot.get_chat(CHAT_ID)
+
+        permissions = chat.permissions
+
+        if permissions is None:
+            await update.effective_message.reply_text(
+                "❌ Не вдалося отримати поточні дозволи групи."
+            )
+            return
+
+        saved_permissions = permissions.to_dict()
+
+        with sqlite3.connect(MAP_DB) as db:
+            existing = db.execute(
+                "SELECT permissions_json FROM chat_permissions WHERE chat_id = ?",
+                (CHAT_ID,)
+            ).fetchone()
+
+            if existing is None:
+                db.execute(
+                    """
+                    INSERT INTO chat_permissions (chat_id, permissions_json)
+                    VALUES (?, ?)
+                    """,
+                    (CHAT_ID, json.dumps(saved_permissions))
+                )
+
+        await context.bot.set_chat_permissions(
+            chat_id=CHAT_ID,
+            permissions=ChatPermissions(
+                can_send_messages=False,
+                can_send_audios=False,
+                can_send_documents=False,
+                can_send_photos=False,
+                can_send_videos=False,
+                can_send_video_notes=False,
+                can_send_voice_notes=False,
+                can_send_polls=False,
+                can_send_other_messages=False,
+                can_add_web_page_previews=False,
+            )
+        )
+
+        admin_sessions.discard(user.id)
+
+        await update.effective_message.reply_text(
+            "🔒 Групу закрито для публікацій учасників.\n"
+            "Адміністратори можуть продовжувати писати."
+        )
+
+    except Exception as error:
+        print("CHAT OFF ERROR:", repr(error))
+        await update.effective_message.reply_text(
+            "❌ Не вдалося закрити групу. Перевір права бота адміністратора."
+        )
+
+
+async def chat_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+
+    if (
+        update.effective_chat.type != "private"
+        or not user
+        or user.id != OWNER_ID
+        or user.id not in admin_sessions
+    ):
+        return
+
+    try:
+        with sqlite3.connect(MAP_DB) as db:
+            saved = db.execute(
+                "SELECT permissions_json FROM chat_permissions WHERE chat_id = ?",
+                (CHAT_ID,)
+            ).fetchone()
+
+        if saved is None:
+            await update.effective_message.reply_text(
+                "ℹ️ Немає збережених налаштувань. Спочатку потрібно закрити групу командою /chat_off."
+            )
+            return
+
+        saved_permissions = json.loads(saved[0])
+
+        await context.bot.set_chat_permissions(
+            chat_id=CHAT_ID,
+            permissions=ChatPermissions(**saved_permissions)
+        )
+
+        with sqlite3.connect(MAP_DB) as db:
+            db.execute(
+                "DELETE FROM chat_permissions WHERE chat_id = ?",
+                (CHAT_ID,)
+            )
+
+        admin_sessions.discard(user.id)
+
+        await update.effective_message.reply_text(
+            "🔓 Групу відкрито. Попередні дозволи учасників відновлено."
+        )
+
+    except Exception as error:
+        print("CHAT ON ERROR:", repr(error))
+        await update.effective_message.reply_text(
+            "❌ Не вдалося відкрити групу. Перевір права бота адміністратора."
+        )
+
+# ================= КІНЕЦЬ КЕРУВАННЯ ГРУПОЮ =================
+
 # ================= ПУБЛІКАЦІЯ ОГОЛОШЕННЯ =================
 
 async def publish(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    owner_id = int(os.getenv("MAP_ADMIN_USER_ID", "0"))
-
     if update.effective_chat.type != "private":
         return
 
-    if not update.effective_user or update.effective_user.id != owner_id:
+    if (
+        not update.effective_user
+        or update.effective_user.id != OWNER_ID
+    ):
+        return
+
+    if update.effective_user.id not in admin_sessions:
         return
 
     try:
         await send_map_announcement(context.bot, CHANNEL_ID)
+
+        admin_sessions.discard(update.effective_user.id)
 
         await update.effective_message.reply_text(
             "✅ Оголошення опубліковано в каналі.",
@@ -1434,10 +1629,10 @@ async def publish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         print(f"ПОМИЛКА ПУБЛІКАЦІЇ В КАНАЛ: {repr(e)}")
+
         await update.effective_message.reply_text(
             f"❌ Помилка публікації в канал: {e}"
         )
-
 
 # ================= КІНЕЦЬ ПУБЛІКАЦІЇ =================
 
@@ -1461,29 +1656,53 @@ def main():
     )
 
     app.add_handler(
-    CommandHandler("start", start)
+        CommandHandler("start", start)
+    )
+
+    # Команда входу в адміністративну панель
+    app.add_handler(
+        CommandHandler("admin", admin_login)
+    )
+
+    # Перевірка пароля адміністратора
+    app.add_handler(
+        MessageHandler(
+            filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
+            check_admin_password
+        ),
+        group=-3
+    )
+
+    app.add_handler(
+        CommandHandler("post", rozmistyty)
+    )
+
+    app.add_handler(
+        CommandHandler("cancel", cancel_publication)
+    )
+
+    # Отримання тексту для публікації
+    app.add_handler(
+        MessageHandler(
+            filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
+            receive_publication
+        ),
+        group=-2
+    )
+
+    app.add_handler(
+        CommandHandler("publish", publish)
+    )
+
+    # Закриття та відкриття групи
+    app.add_handler(
+        CommandHandler("chat_off", chat_off)
+    )
+
+    app.add_handler(
+        CommandHandler("chat_on", chat_on)
     )
     
-    app.add_handler(
-    CommandHandler("post", rozmistyty)
-    )
-
-    app.add_handler(
-    CommandHandler("cancel", cancel_publication)
-    )
-
-    app.add_handler(
-    MessageHandler(
-        filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
-        receive_publication
-    ),
-    group=-2
-    )
-
-    app.add_handler(
-    CommandHandler("publish", publish)
-    )
-
     app.add_handler(
         CallbackQueryHandler(
             map_button_callback,
@@ -1492,7 +1711,10 @@ def main():
     )
 
     app.add_handler(
-        MessageHandler(filters.ALL, main_moderation),
+        MessageHandler(
+            filters.ALL,
+            main_moderation
+        ),
         group=0
     )
 
