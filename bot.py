@@ -1300,17 +1300,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 OWNER_ID = int(os.getenv("MAP_ADMIN_USER_ID", "0"))
 
+
 # ================= АВТОРИЗАЦІЯ ЧЕРЕЗ TELEGRAM =================
 
 async def admin_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         return
 
-    if not update.effective_user or update.effective_user.id != OWNER_ID:
+    user = update.effective_user
+    if not user:
         return
 
-    admin_sessions.discard(update.effective_user.id)
-    admin_password_wait.add(update.effective_user.id)
+    admin_sessions.discard(user.id)
+    admin_password_wait.add(user.id)
 
     await update.effective_message.reply_text(
         "🔐 Введіть пароль адміністратора:"
@@ -1321,10 +1323,7 @@ async def check_admin_password(update: Update, context: ContextTypes.DEFAULT_TYP
     user = update.effective_user
     message = update.effective_message
 
-    if not user or user.id != OWNER_ID:
-        return
-
-    if update.effective_chat.type != "private":
+    if not user or update.effective_chat.type != "private":
         return
 
     if user.id not in admin_password_wait:
@@ -1345,14 +1344,14 @@ async def check_admin_password(update: Update, context: ContextTypes.DEFAULT_TYP
     if not saved_password:
         await context.bot.send_message(
             chat_id=user.id,
-            text="❌ Пароль адміністратора не налаштований."
+            text="❌ Пароль адміністратора не налаштований у Railway."
         )
         return
 
     if not hmac.compare_digest(entered_password, saved_password):
         await context.bot.send_message(
             chat_id=user.id,
-            text="❌ Неправильний пароль."
+            text="❌ Неправильний пароль. Напишіть /admin для повторної спроби."
         )
         return
 
