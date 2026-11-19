@@ -1521,14 +1521,12 @@ async def chat_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if (
         update.effective_chat.type != "private"
         or not user
-        or user.id != OWNER_ID
         or user.id not in admin_sessions
     ):
         return
 
     try:
         chat = await context.bot.get_chat(CHAT_ID)
-
         permissions = chat.permissions
 
         if permissions is None:
@@ -1581,65 +1579,6 @@ async def chat_off(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print("CHAT OFF ERROR:", repr(error))
         await update.effective_message.reply_text(
             "❌ Не вдалося закрити групу. Перевір права бота адміністратора."
-        )
-
-async def chat_on(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-
-    if (
-        update.effective_chat.type != "private"
-        or not user
-        or user.id not in admin_sessions
-    ):
-        return
-
-    try:
-        with sqlite3.connect(MAP_DB) as db:
-            saved = db.execute(
-                "SELECT permissions_json FROM chat_permissions WHERE chat_id = ?",
-                (CHAT_ID,)
-            ).fetchone()
-
-        if saved is None:
-            await update.effective_message.reply_text(
-                "ℹ️ Немає збережених налаштувань. Спочатку потрібно закрити групу командою /chat_off."
-            )
-            return
-
-        saved_permissions = json.loads(saved[0])
-
-        # Залишаємо тільки параметри, які підтримує поточна бібліотека
-        supported_permissions = set(
-            inspect.signature(ChatPermissions).parameters.keys()
-        )
-
-        saved_permissions = {
-            key: value
-            for key, value in saved_permissions.items()
-            if key in supported_permissions
-        }
-
-        await context.bot.set_chat_permissions(
-            chat_id=CHAT_ID,
-            permissions=ChatPermissions(**saved_permissions)
-        )
-
-        with sqlite3.connect(MAP_DB) as db:
-            db.execute(
-                "DELETE FROM chat_permissions WHERE chat_id = ?",
-                (CHAT_ID,)
-            )
-
-        admin_sessions.discard(user.id)
-
-        await update.effective_message.reply_text(
-            "🔓 Групу відкрито. Попередні дозволи учасників відновлено."
-        )
-
-    except Exception as error:
-        print("CHAT ON ERROR:", repr(error))
-        await update.effective_message.reply_text(
-            "❌ Не вдалося відкрити групу. Перевір права бота адміністратора."
         )
 
 # ================= КІНЕЦЬ КЕРУВАННЯ ГРУПОЮ =================
