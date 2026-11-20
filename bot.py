@@ -522,6 +522,79 @@ async def admin_delete_marker(request):
             status=500
         )
 
+# ================= ПЕРЕВІРКА ПРАВ НА ДОДАВАННЯ МІТКИ =================
+
+async def check_map_request_access(request):
+    try:
+        data = await request.json()
+
+        user = verify_webapp_data(data.get("initData", ""))
+
+        if not user:
+            return web.json_response(
+                {"error": "Не вдалося перевірити користувача"},
+                status=403
+            )
+
+        request_id = str(data.get("request_id", ""))
+
+        with sqlite3.connect(MAP_DB) as db:
+            db.row_factory = sqlite3.Row
+
+            row = db.execute("""
+                SELECT *
+                FROM pending_map_requests
+                WHERE request_id = ?
+            """, (request_id,)).fetchone()
+
+        if not row:
+            return web.json_response(
+                {"error": "Запит не знайдено або вже використано"},
+                status=404
+            )
+
+        if datetime.fromisoformat(row["expires_at"]) < datetime.utcnow():
+            return web.json_response(
+                {"error": "Час дії запиту минув"},
+                status=410
+            )
+
+        user_id = int(user["id"])
+
+        # Автор оголошення має право додавати мітку
+        if row["user_id"] == user_id:
+            return web.json_response({
+                "success": True,
+                "can_edit": True
+            })
+
+        # Перевіряємо, чи користувач адміністратор цього чату
+        if not map_bot:
+            return web.json_response(
+                {"error": "Бот ще не запущений"},
+                status=503
+            )
+
+        member = await map_bot.get_chat_member(
+            chat_id=row["chat_id"],
+            user_id=user_id
+        )
+
+        can_edit = member.status in ("administrator", "creator")
+
+        return web.json_response({
+            "success": True,
+            "can_edit": can_edit
+        })
+
+    except Exception as error:
+        print("MAP ACCESS CHECK ERROR:", error)
+
+        return web.json_response(
+            {"error": "Не вдалося перевірити права доступу"},
+            status=500
+        )
+
 # ================= ЗАПУСК API-СЕРВЕРА =================
 
 # Збереження вибраної позначки
@@ -686,6 +759,7 @@ async def map_cors_middleware(request, handler):
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return response
 
+
 # ================= API СПІЛЬНОЇ КАРТИ =================
 
 async def get_map_markers(request):
@@ -708,18 +782,14 @@ async def get_map_markers(request):
         {"markers": markers},
         headers={"Access-Control-Allow-Origin": "*"}
     )
-    
+
+
 async def start_map_server():
     init_map_db()
 
     app = web.Application(
         middlewares=[map_cors_middleware]
     )
-
-    # Далі залишаються всі твої старі маршрути:
-    # /api/markers
-    # /api/admin/unlock
-    # /api/admin/delete-marker
 
     # Завантаження спільних позначок
     app.router.add_get(
@@ -738,7 +808,18 @@ async def start_map_server():
         "/api/markers",
         map_options
     )
-    
+
+    # Перевірка прав користувача на додавання мітки
+    app.router.add_post(
+        "/api/map-request-access",
+        check_map_request_access
+    )
+
+    app.router.add_options(
+        "/api/map-request-access",
+        map_options
+    )
+
     # Вхід у режим бога
     app.router.add_post(
         "/api/admin/unlock",
@@ -775,7 +856,6 @@ async def start_map_server():
     print(f"MAP SERVER STARTED ON PORT {MAP_PORT} ✅")
 
     return runner
-
 
 # ================= ПІДРАХУНОК ЕМОДЗІ =================
 
