@@ -851,6 +851,7 @@ homeButton.addEventListener('click', function() {
 // 9. ПОШУК АДРЕСИ
 // ==================================================
 
+
 async function searchAddress() {
   const originalQuery = addressInput.value.trim();
 
@@ -859,7 +860,6 @@ async function searchAddress() {
     return;
   }
 
-  // Прибираємо скорочення та зайві пробіли
   const query = originalQuery
     .replace(/^(вулиця|вул\.?|улица|ул\.?)\s*/i, '')
     .replace(/\s+/g, ' ')
@@ -912,9 +912,9 @@ async function searchAddress() {
       console.warn('Основний пошук недоступний:', error);
     }
 
-    // 2. Якщо не знайдено — додатковий пошук через Photon
+    // 2. Додатковий пошук через Photon
     if (!found.length) {
-      setStatus('Пробуємо знайти адресу з виправленням помилок...');
+      setStatus('Пробуємо знайти адресу...');
 
       const params = new URLSearchParams({
         q: query,
@@ -974,7 +974,45 @@ async function searchAddress() {
       return;
     }
 
-    // 4. Показуємо результати пошуку
+    // 4. Відкриваємо знайдене місце
+    function showSearchResult(item) {
+
+      // У режимі перегляду лише підсвічуємо місце
+      if (mode === 'view') {
+
+        // Прибираємо попереднє підсвічування
+        if (searchAddress.highlight) {
+          map.removeLayer(searchAddress.highlight);
+          searchAddress.highlight = null;
+        }
+
+        // Кольорове підсвічування без геомітки
+        searchAddress.highlight = L.circle(
+          [item.lat, item.lon],
+          {
+            radius: 35,
+            color: '#f59e0b',
+            weight: 4,
+            opacity: 1,
+            fillColor: '#facc15',
+            fillOpacity: 0.45
+          }
+        ).addTo(map);
+
+        map.setView([item.lat, item.lon], 18);
+
+        setStatus(
+          '🔎 Знайдено: ' + item.label
+        );
+
+        return;
+      }
+
+      // В інших режимах залишаємо стару поведінку
+      choosePlace(item.lat, item.lon, item.label);
+    }
+
+    // 5. Показуємо результати
     resultsBox.innerHTML = '';
 
     found.forEach(function(item) {
@@ -985,7 +1023,7 @@ async function searchAddress() {
       button.textContent = item.label;
 
       button.addEventListener('click', function() {
-        choosePlace(item.lat, item.lon, item.label);
+        showSearchResult(item);
 
         resultsBox.style.display = 'none';
         resultsBox.innerHTML = '';
@@ -995,11 +1033,8 @@ async function searchAddress() {
     });
 
     if (found.length === 1) {
-      choosePlace(
-        found[0].lat,
-        found[0].lon,
-        found[0].label
-      );
+      showSearchResult(found[0]);
+
     } else {
       resultsBox.style.display = 'block';
 
