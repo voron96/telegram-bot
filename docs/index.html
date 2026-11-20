@@ -1217,6 +1217,7 @@ cancelButton.addEventListener('click', function() {
 // 13. РЕЖИМ ВІД TELEGRAM
 // ==================================================
 
+
 async function initializeTelegramMode() {
   if (!tg) {
     setStatus('Помилка: Telegram WebApp не знайдено.');
@@ -1225,12 +1226,27 @@ async function initializeTelegramMode() {
 
   const params = new URLSearchParams(window.location.search);
 
-  const startParam =
-    (tg.initDataUnsafe && tg.initDataUnsafe.start_param) ||
-    params.get('startapp') ||
-    '';
+  // Отримуємо параметр запуску з усіх можливих джерел Telegram
+  let startParam = '';
 
-  // Відкриття вже існуючої вакансії — тільки перегляд
+  if (tg.initDataUnsafe && tg.initDataUnsafe.start_param) {
+    startParam = tg.initDataUnsafe.start_param;
+  }
+
+  if (!startParam) {
+    startParam = params.get('tgWebAppStartParam') || '';
+  }
+
+  if (!startParam) {
+    startParam = params.get('startapp') || '';
+  }
+
+  if (!startParam && tg.initData) {
+    const initParams = new URLSearchParams(tg.initData);
+    startParam = initParams.get('start_param') || '';
+  }
+
+  // Існуюча вакансія — тільки перегляд
   if (startParam.startsWith('marker_')) {
     setMode('view');
 
@@ -1241,6 +1257,7 @@ async function initializeTelegramMode() {
     return;
   }
 
+  // Отримуємо ID запиту на додавання нової мітки
   const requestId =
     params.get('request_id') ||
     (
@@ -1257,7 +1274,11 @@ async function initializeTelegramMode() {
 
   if (!tg.initData) {
     setMode('view');
-    setStatus('Не вдалося перевірити Telegram. Закрийте карту та відкрийте її знову через бота.');
+
+    setStatus(
+      'Не вдалося перевірити Telegram. Закрийте карту та відкрийте її знову через бота.'
+    );
+
     return;
   }
 
@@ -1286,7 +1307,7 @@ async function initializeTelegramMode() {
       );
     }
 
-    if (result.can_edit) {
+    if (result.can_edit === true) {
       setMode('vacancy');
       searchPanel.style.display = 'block';
 
