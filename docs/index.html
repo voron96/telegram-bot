@@ -703,11 +703,14 @@ async function loadSharedMarkers() {
 
     const params = new URLSearchParams(window.location.search);
 
+    // Отримуємо параметр запуску Telegram
     const startParam =
-      tg && tg.initDataUnsafe
-        ? tg.initDataUnsafe.start_param || ''
-        : '';
+      (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) ||
+      params.get('startapp') ||
+      params.get('tgWebAppStartParam') ||
+      '';
 
+    // Визначаємо ID вакансії, якщо відкрили конкретну мітку
     const requestedMarkerId = startParam.startsWith('marker_')
       ? startParam.substring(7)
       : params.get('marker_id');
@@ -808,6 +811,7 @@ async function loadSharedMarkers() {
       }
     });
 
+    // Відкриваємо потрібну вакансію на карті
     if (selectedMarker) {
       map.setView(
         [
