@@ -1304,6 +1304,7 @@ async def post_shutdown(app):
 
 # ================= АВТОМАТИЧНЕ ПРИБИРАННЯ КНОПОК ЧЕРЕЗ 8 ГОДИН =================
 
+
 async def expire_vacancy_buttons(app):
     while True:
         try:
@@ -1325,7 +1326,13 @@ async def expire_vacancy_buttons(app):
                         reply_markup=None
                     )
                 except Exception as error:
-                    print("EXPIRED VACANCY BUTTON ERROR:", error)
+                    error_text = str(error).lower()
+
+                    if (
+                        "message to edit not found" not in error_text
+                        and "message_id_invalid" not in error_text
+                    ):
+                        print("EXPIRED VACANCY BUTTON ERROR:", error)
 
                 with sqlite3.connect(MAP_DB) as db:
                     db.execute("""
