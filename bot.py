@@ -568,11 +568,29 @@ async def save_map_marker(request):
                 )
 
             if row["user_id"] != int(user["id"]):
-                return web.json_response(
-                    {"error": "Це оголошення належить іншому користувачу"},
-                    status=403
-                )
+                try:
+                    if not map_bot:
+                        raise RuntimeError("Бот ще не запущений")
 
+                    member = await map_bot.get_chat_member(
+                        chat_id=row["chat_id"],
+                        user_id=int(user["id"])
+                    )
+
+                    if member.status not in ("administrator", "creator"):
+                        return web.json_response(
+                            {"error": "Це оголошення належить іншому користувачу"},
+                            status=403
+                        )
+
+                except Exception as error:
+                    print("MAP ADMIN CHECK ERROR:", error)
+
+                    return web.json_response(
+                        {"error": "Не вдалося перевірити права адміністратора"},
+                        status=403
+                    )
+                    
             if datetime.fromisoformat(row["expires_at"]) < datetime.utcnow():
                 return web.json_response(
                     {"error": "Час дії запиту минув"},
