@@ -156,7 +156,9 @@ async def expire_map_request(context, request_id, chat_id, button_message_id):
                 message_id=button_message_id
             )
         except Exception as error:
-            print("EXPIRED MAP BUTTON DELETE ERROR:", error)
+            if "message to delete not found" not in str(error).lower():
+                print("EXPIRED MAP BUTTON DELETE ERROR:", error)
+
 
 async def cleanup_expired_map_requests(app):
     while True:
@@ -178,7 +180,8 @@ async def cleanup_expired_map_requests(app):
                             message_id=button_message_id
                         )
                     except Exception as error:
-                        print("EXPIRED MAP BUTTON CLEANUP ERROR:", error)
+                        if "message to delete not found" not in str(error).lower():
+                            print("EXPIRED MAP BUTTON CLEANUP ERROR:", error)
 
                 with sqlite3.connect(MAP_DB) as db:
                     db.execute("""
