@@ -526,6 +526,12 @@ map.on('click', function(e) {
 // ==================================================
 
 function choosePlace(lat, lon, label) {
+  // У режимі перегляду забороняємо встановлювати мітки
+  if (mode !== 'home' && mode !== 'vacancy') {
+    setStatus('👁️ Режим перегляду. Додавати позначки вам не дозволено.');
+    return;
+  }
+
   lat = Number(lat);
   lon = Number(lon);
 
@@ -544,9 +550,6 @@ function choosePlace(lat, lon, label) {
     label: label || 'Вибране місце'
   };
 
-  // Домашня позначка з кнопками підтвердження
-  
-  // Позначка з кнопками підтвердження
   {
     const markerEmoji = mode === 'home' ? '🏠' : '📍';
 
@@ -635,9 +638,7 @@ function choosePlace(lat, lon, label) {
   map.setView([lat, lon], 16);
 
   setStatus(
-    mode === 'home'
-      ? 'Перевірте місце та натисніть зелену галочку для збереження або червоний хрестик для скасування.'
-      : 'Перевірте місце та натисніть зелену галочку для збереження або червоний хрестик для скасування.'
+    'Перевірте місце та натисніть зелену галочку для збереження або червоний хрестик для скасування.'
   );
 }
 
@@ -1212,7 +1213,7 @@ cancelButton.addEventListener('click', function() {
 // 13. РЕЖИМ ВІД TELEGRAM
 // ==================================================
 
-function initializeTelegramMode() {
+async function initializeTelegramMode() {
   if (!tg) {
     setStatus('Помилка: Telegram WebApp не знайдено.');
     return;
@@ -1220,12 +1221,21 @@ function initializeTelegramMode() {
 
   const params = new URLSearchParams(window.location.search);
 
-  const requestedMode = params.get('mode');
-
   const startParam =
     (tg.initDataUnsafe && tg.initDataUnsafe.start_param) ||
     params.get('startapp') ||
     '';
+
+  // Відкриття вже існуючої вакансії — тільки перегляд
+  if (startParam.startsWith('marker_')) {
+    setMode('view');
+
+    setStatus(
+      '👁️ РЕЖИМ ПЕРЕГЛЯДУ. Ви можете переглядати вакансії, але не можете змінювати їхні позначки.'
+    );
+
+    return;
+  }
 
   const requestId =
     params.get('request_id') ||
@@ -1235,20 +1245,68 @@ function initializeTelegramMode() {
         : ''
     );
 
-  if (requestedMode === 'vacancy' || requestId) {
-    setMode('vacancy');
+  if (!requestId) {
+    setMode('view');
+    setStatus('Карта відкрита в режимі перегляду.');
+    return;
+  }
 
-    searchPanel.style.display = 'block';
+  if (!tg.initData) {
+    setMode('view');
+    setStatus('Не вдалося перевірити Telegram. Закрийте карту та відкрийте її знову через бота.');
+    return;
+  }
 
-    setStatus('Режим вакансії активний. Можна встановити мітку.');
-  } else {
+  setStatus('Перевіряємо ваші права доступу...');
+
+  try {
+    const response = await fetch(
+      MAP_API_URL + '/api/map-request-access',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          initData: tg.initData,
+          request_id: requestId
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.error || 'Не вдалося перевірити права доступу.'
+      );
+    }
+
+    if (result.can_edit) {
+      setMode('vacancy');
+      searchPanel.style.display = 'block';
+
+      setStatus(
+        '✅ Доступ дозволено. Можна встановити позначку вакансії.'
+      );
+    } else {
+      setMode('view');
+
+      setStatus(
+        '👁️ РЕЖИМ ПЕРЕГЛЯДУ. Ви можете переглядати карту, але не можете додавати позначки.'
+      );
+    }
+
+  } catch (error) {
+    console.error('Помилка перевірки доступу:', error);
+
+    setMode('view');
+
     setStatus(
-      'Режим вакансії не активний. Параметр не передано.'
+      error.message || 'Не вдалося перевірити доступ. Карта відкрита тільки для перегляду.'
     );
   }
 }
-  
-initializeTelegramMode();
   
 // ==================================================
 // 14. ОСТАТОЧНЕ НАЛАШТУВАННЯ РОЗМІРУ
