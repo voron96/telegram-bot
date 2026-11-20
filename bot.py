@@ -156,9 +156,7 @@ async def expire_map_request(context, request_id, chat_id, button_message_id):
                 message_id=button_message_id
             )
         except Exception as error:
-            if "message to delete not found" not in str(error).lower():
-                print("EXPIRED MAP BUTTON DELETE ERROR:", error)
-
+            print("EXPIRED MAP BUTTON DELETE ERROR:", error)
 
 async def cleanup_expired_map_requests(app):
     while True:
@@ -180,8 +178,7 @@ async def cleanup_expired_map_requests(app):
                             message_id=button_message_id
                         )
                     except Exception as error:
-                        if "message to delete not found" not in str(error).lower():
-                            print("EXPIRED MAP BUTTON CLEANUP ERROR:", error)
+                        print("EXPIRED MAP BUTTON CLEANUP ERROR:", error)
 
                 with sqlite3.connect(MAP_DB) as db:
                     db.execute("""
@@ -1307,7 +1304,6 @@ async def post_shutdown(app):
 
 # ================= АВТОМАТИЧНЕ ПРИБИРАННЯ КНОПОК ЧЕРЕЗ 8 ГОДИН =================
 
-
 async def expire_vacancy_buttons(app):
     while True:
         try:
@@ -1329,13 +1325,7 @@ async def expire_vacancy_buttons(app):
                         reply_markup=None
                     )
                 except Exception as error:
-                    error_text = str(error).lower()
-
-                    if (
-                        "message to edit not found" not in error_text
-                        and "message_id_invalid" not in error_text
-                    ):
-                        print("EXPIRED VACANCY BUTTON ERROR:", error)
+                    print("EXPIRED VACANCY BUTTON ERROR:", error)
 
                 with sqlite3.connect(MAP_DB) as db:
                     db.execute("""
