@@ -1325,7 +1325,8 @@ async def expire_vacancy_buttons(app):
                         reply_markup=None
                     )
                 except Exception as error:
-                    print("EXPIRED VACANCY BUTTON ERROR:", error)
+                    if "message to edit not found" not in str(error).lower():
+                        print("EXPIRED VACANCY BUTTON ERROR:", error)
 
                 with sqlite3.connect(MAP_DB) as db:
                     db.execute("""
